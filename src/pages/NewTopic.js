@@ -4,60 +4,52 @@ import { useNavigate, Link } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import RichTextEditor from '../components/RichTextEditor';
-import { getAvatarColor, formatNumber } from '../utils/formatters';
+import { getAvatarColor, formatNumber, getTagColor } from '../utils/formatters';
 
 // ============= Topic Type Icons =============
-function DiscussionIcon({ active }) {
+// Todos usam currentColor: quem define a cor é o container do ícone.
+function DiscussionIcon() {
   return (
-    <svg className="w-10 h-10" fill="none" stroke={active ? 'white' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth="1.5">
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8" aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2z" />
       <path strokeLinecap="round" d="M8 8h8M8 11h5" />
     </svg>
   );
 }
 
-function QuestionIcon({ active }) {
+function PollIcon() {
   return (
-    <svg className="w-10 h-10" fill="none" stroke={active ? 'white' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth="1.5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01" />
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-    </svg>
-  );
-}
-
-function PollIcon({ active }) {
-  return (
-    <svg className="w-10 h-10" fill="none" stroke={active ? 'white' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth="1.5">
-      <path strokeLinecap="round" d="M4 8h10M4 12h16M4 16h6" />
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8" aria-hidden="true">
       <rect x="3" y="4" width="18" height="16" rx="2" strokeLinejoin="round" />
+      <path strokeLinecap="round" d="M8 16V11M12 16V8M16 16v-3" />
     </svg>
   );
 }
 
-function ImageIcon({ active }) {
+function ImageIcon() {
   return (
-    <svg className="w-10 h-10" fill="none" stroke={active ? 'white' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth="1.5">
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8" aria-hidden="true">
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <circle cx="8.5" cy="8.5" r="1.5" />
-      <path d="M21 15l-5-5L5 21" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 15l-5-5L5 21" />
     </svg>
   );
 }
 
-function VideoIcon({ active }) {
+function VideoIcon() {
   return (
-    <svg className="w-10 h-10" fill="none" stroke={active ? 'white' : '#9ca3af'} viewBox="0 0 24 24" strokeWidth="1.5">
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8" aria-hidden="true">
       <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M10 9l5 3-5 3V9z" fill={active ? 'white' : '#9ca3af'} stroke="none" />
+      <path d="M10 9l5 3-5 3V9z" fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
 const TOPIC_TYPES = [
-  { key: 'discussion', label: 'Discussão', Icon: DiscussionIcon, desc: 'Dissertação ou debate' },
-  { key: 'poll', label: 'Votação', Icon: PollIcon, desc: 'Enquete com alternativas' },
-  { key: 'images', label: 'Imagem', Icon: ImageIcon, desc: 'Texto + imagem' },
-  { key: 'video', label: 'Vídeo', Icon: VideoIcon, desc: 'Vídeo ou link externo' },
+  { key: 'discussion', label: 'Discussão', Icon: DiscussionIcon, desc: 'Dissertação ou debate', accent: '#034EA2' },
+  { key: 'poll', label: 'Votação', Icon: PollIcon, desc: 'Enquete com alternativas', accent: '#0B9247' },
+  { key: 'images', label: 'Imagem', Icon: ImageIcon, desc: 'Texto + imagem', accent: '#7C3AED' },
+  { key: 'video', label: 'Vídeo', Icon: VideoIcon, desc: 'Vídeo ou link externo', accent: '#F97316' },
 ];
 
 // ============= Helpers =============
@@ -154,6 +146,16 @@ export default function NewTopic() {
 
   function scrollToRelated() {
     relatedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ====== Tags ======
+  const selectedTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  function toggleTag(name) {
+    const next = selectedTags.includes(name)
+      ? selectedTags.filter(t => t !== name)
+      : [...selectedTags, name];
+    setTags(next.join(', '));
   }
 
   // ====== Poll handlers ======
@@ -361,32 +363,34 @@ export default function NewTopic() {
                   type="button"
                   onClick={() => handleTypeChange(t.key)}
                   aria-pressed={active}
-                  className={`relative flex flex-col items-center justify-center gap-1.5 py-4 px-2 rounded-lg border-2 transition cursor-pointer bg-white ${
-                    active
-                      ? 'border-[#034EA2] shadow-sm'
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                  className={`relative flex flex-col items-center justify-center gap-2 py-4 px-2 rounded-lg border-2 transition cursor-pointer ${
+                    active ? 'shadow-sm' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
                   }`}
+                  style={active ? { borderColor: t.accent, backgroundColor: `${t.accent}0A` } : undefined}
                 >
                   {active && (
                     <span
-                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white"
-                      style={{ backgroundColor: '#034EA2' }}
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm"
+                      style={{ backgroundColor: t.accent }}
                     >
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </span>
                   )}
                   <div
-                    className="w-11 h-11 rounded-lg flex items-center justify-center"
-                    style={active ? { backgroundColor: '#034EA2' } : { backgroundColor: '#f3f4f6' }}
+                    className="w-11 h-11 rounded-lg flex items-center justify-center transition"
+                    style={{ backgroundColor: `${t.accent}14`, color: t.accent }}
                   >
-                    <t.Icon active={active} />
+                    <t.Icon />
                   </div>
-                  <span className={`text-xs font-semibold mt-0.5 ${active ? 'text-[#034EA2]' : 'text-gray-700'}`}>
+                  <span
+                    className="text-xs font-semibold"
+                    style={active ? { color: t.accent } : { color: '#374151' }}
+                  >
                     {t.label}
                   </span>
-                  <span className="text-[10px] text-gray-400">
+                  <span className="text-[10px] text-gray-400 text-center leading-tight">
                     {t.desc}
                   </span>
                 </button>
@@ -646,20 +650,34 @@ export default function NewTopic() {
               value={tags}
               onChange={e => setTags(e.target.value)}
               placeholder="Use vírgulas para separar as tags"
-              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-red-300 placeholder-gray-400"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-200 placeholder-gray-400"
             />
             {allTags?.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
-                {allTags.map(t => (
-                  <button key={t.id} type="button"
-                    onClick={() => {
-                      const currentTags = tags ? tags.split(',').map(s => s.trim()) : [];
-                      if (!currentTags.includes(t.name)) setTags([...currentTags, t.name].filter(Boolean).join(', '));
-                    }}
-                    className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded hover:bg-gray-200 transition">
-                    + {t.name}
-                  </button>
-                ))}
+                {allTags.map(t => {
+                  const color = getTagColor(t.name);
+                  const selected = selectedTags.includes(t.name);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => toggleTag(t.name)}
+                      aria-pressed={selected}
+                      title={selected ? `Remover tag ${t.name}` : `Adicionar tag ${t.name}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full border transition hover:opacity-85"
+                      style={selected
+                        ? { backgroundColor: color, borderColor: color, color: '#fff' }
+                        : { backgroundColor: `${color}14`, borderColor: `${color}33`, color }}
+                    >
+                      <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" aria-hidden="true">
+                        {selected
+                          ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          : <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />}
+                      </svg>
+                      {t.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

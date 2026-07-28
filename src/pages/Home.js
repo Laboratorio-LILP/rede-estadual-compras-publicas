@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarColor, timeAgoLong, formatNumber } from '../utils/formatters';
+import CategoryBadge from '../components/CategoryBadge';
 import { useState } from 'react';
 
 const PER_PAGE_OPTIONS = [10, 20, 50];
@@ -198,7 +199,7 @@ export default function Home() {
         {/* Header da tabela */}
         <div className="flex items-center py-2.5 px-4 text-xs text-gray-500 font-medium uppercase tracking-wider border-b border-gray-200 bg-gray-50">
           <div className="flex-1">Tópico</div>
-          <div className="w-28 text-right hidden md:block mr-4">Categoria</div>
+          <div className="w-44 text-left hidden md:block mr-4">Categoria</div>
           <div className="w-20 text-center font-bold text-gray-700 mr-4">Respostas</div>
           <div className="w-24 text-center hidden sm:block mr-4">Visualizações</div>
           <div className="w-28 text-right hidden lg:block">Atividade</div>
@@ -305,14 +306,12 @@ export default function Home() {
                 </div>
 
                 {/* Categoria badge */}
-                <div className="w-28 hidden md:flex justify-end mr-4">
-                  <Link
-                    to={`/category/${topic.category_id}`}
-                    className="text-xs text-white px-2.5 py-1 rounded-sm font-medium truncate"
-                    style={{ backgroundColor: topic.category_color }}
-                  >
-                    {topic.category_name}
-                  </Link>
+                <div className="w-44 hidden md:flex justify-start mr-4">
+                  <CategoryBadge
+                    id={topic.category_id}
+                    name={topic.category_name}
+                    color={topic.category_color}
+                  />
                 </div>
 
                 {/* Respostas */}

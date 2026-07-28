@@ -8,6 +8,19 @@ export function getAvatarColor(name) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+// Paleta das tags — tons institucionais + apoio, com contraste suficiente
+// para texto branco quando a tag está selecionada.
+export const TAG_COLORS = [
+  '#034EA2', '#0B9247', '#FF161F', '#4297D3',
+  '#233254', '#7C3AED', '#F97316', '#0891B2',
+];
+
+export function getTagColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
+}
+
 export function timeAgo(dateStr) {
   if (!dateStr) return '';
   const now = new Date();
