@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiFetch } from '../api';
@@ -79,6 +79,7 @@ export default function NewTopic() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const relatedRef = useRef(null);
   const [title, setTitle] = useState('');
   const [type, setType] = useState('discussion');
   const [content, setContent] = useState('');
@@ -98,7 +99,7 @@ export default function NewTopic() {
   // Video state
   const [videoUrl, setVideoUrl] = useState('');
 
-  const MAX_TITLE = 99;
+  const MAX_TITLE = 100;
   const MAX_QUESTION = 100;
 
   const { data: categories } = useQuery({
@@ -115,6 +116,45 @@ export default function NewTopic() {
     queryKey: ['topics'],
     queryFn: () => apiFetch('/topics'),
   });
+
+  // ====== Tópicos relacionados (baseado no título e tags digitados) ======
+  const relatedTopics = useMemo(() => {
+    const userTagList = tags ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+    const stopwords = ['como','para','que','com','por','das','dos','uma','uns','mais','entre','sobre','qual','quais','pode','deve','todas','todos','este','esta','esse','essa','novo','nova','são','tem','ser','ter','foi','sua','seu','ele','ela','nas','nos','sem','feito','fazer'];
+    const titleWords = title.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .split(/\s+/)
+      .filter(w => w.length >= 3 && !stopwords.includes(w));
+
+    // Compatibilidade: /topics pode retornar array (antigo) ou objeto paginado { topics, ... }.
+    const topicList = Array.isArray(allTopics) ? allTopics : (allTopics?.topics || []);
+
+    return topicList.map(t => {
+      let score = 0;
+      // Pontuação por palavras-chave do título (peso 3 cada)
+      if (titleWords.length > 0) {
+        const topicTitle = t.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        for (const word of titleWords) {
+          if (topicTitle.includes(word)) score += 3;
+        }
+      }
+      // Pontuação por tags em comum (peso 2 cada)
+      if (userTagList.length > 0 && t.tags?.length > 0) {
+        for (const tag of t.tags) {
+          if (userTagList.includes(tag.toLowerCase())) score += 2;
+        }
+      }
+      // Pontuação por mesma categoria (peso 1)
+      if (categoryId && String(t.category_id) === String(categoryId)) score += 1;
+      return { ...t, score };
+    }).filter(t => t.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+  }, [title, tags, categoryId, allTopics]);
+
+  function scrollToRelated() {
+    relatedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // ====== Poll handlers ======
   function addPollOption() {
@@ -275,11 +315,33 @@ export default function NewTopic() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Page title */}
-      <h1 className="text-lg font-semibold text-gray-800 mb-1">Criar novo Tópico</h1>
-      <div className="border-b border-gray-200 mb-6"></div>
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      {/* Breadcrumb */}
+      <div className="text-sm text-gray-500 mb-4">
+        <Link to="/forum" className="hover:text-[#034EA2]">Fórum</Link>
+        <span className="mx-2 text-gray-300">/</span>
+        <span className="font-medium text-gray-700">Novo Tópico</span>
+      </div>
 
+      {/* Cabeçalho */}
+      <div className="flex items-start gap-3 mb-6">
+        <div
+          className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: '#FF161F14', color: '#FF161F' }}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <div>
+          <h1 className="font-montserrat text-2xl font-extrabold text-gray-900 leading-tight">Criar novo tópico</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Compartilhe sua dúvida, experiência ou contribuição com a Rede.</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* ====== Coluna principal: formulário ====== */}
+        <div className="flex-1 min-w-0">
       <form onSubmit={handleSubmit}>
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2.5 rounded-lg text-sm mb-5">
@@ -290,7 +352,7 @@ export default function NewTopic() {
         {/* ====== Tipo de tópico ====== */}
         <div className="mb-6">
           <label className="block text-sm font-semibold text-gray-700 mb-3">Tipo de tópico</label>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {TOPIC_TYPES.map(t => {
               const active = type === t.key;
               return (
@@ -298,17 +360,33 @@ export default function NewTopic() {
                   key={t.key}
                   type="button"
                   onClick={() => handleTypeChange(t.key)}
-                  className={`flex flex-col items-center justify-center py-4 px-2 rounded-lg border-2 transition cursor-pointer ${
+                  aria-pressed={active}
+                  className={`relative flex flex-col items-center justify-center gap-1.5 py-4 px-2 rounded-lg border-2 transition cursor-pointer bg-white ${
                     active
-                      ? 'bg-red-500 border-red-500 text-white shadow-md'
-                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:shadow-sm'
+                      ? 'border-[#034EA2] shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                   }`}
                 >
-                  <t.Icon active={active} />
-                  <span className={`text-xs font-medium mt-1.5 ${active ? 'text-white' : 'text-gray-600'}`}>
+                  {active && (
+                    <span
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-white"
+                      style={{ backgroundColor: '#034EA2' }}
+                    >
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  )}
+                  <div
+                    className="w-11 h-11 rounded-lg flex items-center justify-center"
+                    style={active ? { backgroundColor: '#034EA2' } : { backgroundColor: '#f3f4f6' }}
+                  >
+                    <t.Icon active={active} />
+                  </div>
+                  <span className={`text-xs font-semibold mt-0.5 ${active ? 'text-[#034EA2]' : 'text-gray-700'}`}>
                     {t.label}
                   </span>
-                  <span className={`text-[10px] mt-0.5 ${active ? 'text-red-100' : 'text-gray-400'}`}>
+                  <span className="text-[10px] text-gray-400">
                     {t.desc}
                   </span>
                 </button>
@@ -319,17 +397,19 @@ export default function NewTopic() {
 
         {/* ====== Título ====== */}
         <div className="mb-5">
-          <label className="block text-sm font-semibold text-red-500 mb-2">Título do tópico</label>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Título do tópico <span style={{ color: '#FF161F' }}>*</span>
+          </label>
           <div className="relative">
             <input
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value.slice(0, MAX_TITLE))}
-              placeholder="Assunto do seu tópico"
-              className="w-full bg-gray-100 rounded-lg px-4 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-red-300 pr-12"
+              placeholder="Digite um título claro e objetivo para o seu tópico"
+              className="w-full bg-gray-100 rounded-lg px-4 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-200 pr-16"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">
-              {MAX_TITLE - title.length}
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium tabular-nums">
+              {title.length}/{MAX_TITLE}
             </span>
           </div>
         </div>
@@ -537,21 +617,30 @@ export default function NewTopic() {
         {/* ====== Categoria & Tags ====== */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Categoria</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Categoria <span style={{ color: '#FF161F' }}>*</span>
+            </label>
             <select
               value={categoryId}
               onChange={e => setCategoryId(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-red-300 appearance-none cursor-pointer"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-200 appearance-none cursor-pointer"
               style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
             >
-              <option value="">Selecionar</option>
+              <option value="">Selecione uma categoria</option>
               {categories?.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            <p className="text-xs text-gray-400 mt-1.5">Escolha a categoria mais adequada para o seu tópico.</p>
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Tags</label>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 mb-2">
+              Tags
+              <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"
+                title="Tags ajudam outros usuários a encontrar seu tópico na busca.">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+              </svg>
+            </label>
             <input
               type="text"
               value={tags}
@@ -596,47 +685,67 @@ export default function NewTopic() {
           </div>
         </div>
       </form>
+        </div>
+
+        {/* ====== Coluna lateral: dicas ====== */}
+        <aside className="w-full lg:w-72 flex-shrink-0 space-y-4">
+          <div className="rounded-lg p-5" style={{ backgroundColor: '#034EA20A', border: '1px solid #034EA226' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-4 h-4" style={{ color: '#034EA2' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+              </svg>
+              <h2 className="text-sm font-bold text-gray-800">Dicas para um bom tópico</h2>
+            </div>
+            <ul className="space-y-2">
+              {[
+                'Seja claro e objetivo no título.',
+                'Forneça o máximo de detalhes possível.',
+                'Verifique se sua dúvida já não foi respondida.',
+                'Escolha a categoria correta para facilitar a busca.',
+                'Use tags relevantes para alcançar mais pessoas.',
+              ].map(tip => (
+                <li key={tip} className="flex items-start gap-2 text-xs text-gray-600 leading-relaxed">
+                  <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#0B9247' }} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+              </svg>
+              <h2 className="text-sm font-bold text-gray-800">Antes de publicar</h2>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed mb-3">
+              Verifique se sua dúvida já foi respondida no fórum.
+            </p>
+            <button
+              type="button"
+              onClick={scrollToRelated}
+              className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {relatedTopics.length > 0
+                ? `Pesquisar tópicos semelhantes (${relatedTopics.length})`
+                : 'Pesquisar tópicos semelhantes'}
+            </button>
+          </div>
+        </aside>
+      </div>
 
       {/* ====== Tópicos Relacionados ====== */}
       {(() => {
-        const userTagList = tags ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
-        const stopwords = ['como','para','que','com','por','das','dos','uma','uns','mais','entre','sobre','qual','quais','pode','deve','todas','todos','este','esta','esse','essa','novo','nova','são','tem','ser','ter','foi','sua','seu','ele','ela','nas','nos','sem','feito','fazer'];
-        const titleWords = title.toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .split(/\s+/)
-          .filter(w => w.length >= 3 && !stopwords.includes(w));
-
-        // Compatibilidade: /topics pode retornar array (antigo) ou objeto paginado { topics, ... }.
-        const topicList = Array.isArray(allTopics) ? allTopics : (allTopics?.topics || []);
-
-        const scored = topicList.map(t => {
-          let score = 0;
-          // Pontuação por palavras-chave do título (peso 3 cada)
-          if (titleWords.length > 0) {
-            const topicTitle = t.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            for (const word of titleWords) {
-              if (topicTitle.includes(word)) score += 3;
-            }
-          }
-          // Pontuação por tags em comum (peso 2 cada)
-          if (userTagList.length > 0 && t.tags?.length > 0) {
-            for (const tag of t.tags) {
-              if (userTagList.includes(tag.toLowerCase())) score += 2;
-            }
-          }
-          // Pontuação por mesma categoria (peso 1)
-          if (categoryId && String(t.category_id) === String(categoryId)) score += 1;
-          return { ...t, score };
-        }).filter(t => t.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 8);
-
-        const relatedTopics = scored;
-
         if (relatedTopics.length === 0) return null;
 
         return (
-          <div className="mb-8">
+          <div ref={relatedRef} id="topicos-relacionados" className="mb-8 scroll-mt-20">
             <div className="flex items-center gap-2 mb-3">
               <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />

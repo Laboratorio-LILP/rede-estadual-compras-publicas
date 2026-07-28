@@ -203,6 +203,9 @@ try { db.exec('ALTER TABLE topics ADD COLUMN video_url TEXT DEFAULT ""'); } catc
 // Adicionar coluna status para moderacao de topicos com imagem/video
 try { db.exec('ALTER TABLE topics ADD COLUMN status TEXT DEFAULT "approved"'); } catch {}
 
+// Adicionar coluna de aceite dos termos de uso
+try { db.prepare('ALTER TABLE users ADD COLUMN terms_accepted_at DATETIME').run(); } catch {}
+
 // Tabela de categorias do usuario (interesses)
 db.exec(`
   CREATE TABLE IF NOT EXISTS user_categories (
@@ -663,13 +666,15 @@ function adminOnly(req, res, next) {
 // =================== AUTH ===================
 
 app.post('/api/auth/register', authLimiter, (req, res) => {
-  const { username, email, password, organization, location, category_ids } = req.body;
+  const { username, email, password, organization, location, category_ids, accept_terms } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Email inválido' });
   if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+  if (!accept_terms) return res.status(400).json({ error: 'É necessário aceitar os Termos de Uso para criar uma conta' });
   try {
     const hashed = bcrypt.hashSync(password, 10);
-    const result = db.prepare('INSERT INTO users (username, email, password, organization, location) VALUES (?, ?, ?, ?, ?)')
+    const result = db.prepare(`INSERT INTO users (username, email, password, organization, location, terms_accepted_at)
+                               VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
       .run(username, email, hashed, organization || '', location || '');
     const userId = result.lastInsertRowid;
 
@@ -928,9 +933,10 @@ app.post('/api/tags', auth, adminOnly, (req, res) => {
 
 // Lista TODOS os topicos (home page estilo Discourse)
 app.get('/api/topics', optionalAuth, (req, res) => {
-  const { sort, category_id, page } = req.query;
+  const { sort, category_id, page, per_page } = req.query;
   const pageNum = Math.max(1, parseInt(page) || 1);
-  const perPage = 20;
+  const ALLOWED_PER_PAGE = [10, 20, 50];
+  const perPage = ALLOWED_PER_PAGE.includes(parseInt(per_page)) ? parseInt(per_page) : 20;
 
   let orderBy = 'ORDER BY t.pinned DESC, last_activity DESC';
   if (sort === 'new') orderBy = 'ORDER BY t.pinned DESC, t.created_at DESC';
@@ -993,7 +999,7 @@ app.get('/api/topics', optionalAuth, (req, res) => {
     delete topic.tag_names;
   }
 
-  res.json({ topics, page: pageNum, totalPages, total });
+  res.json({ topics, page: pageNum, totalPages, total, perPage });
 });
 
 app.get('/api/categories/:id/topics', optionalAuth, (req, res) => {

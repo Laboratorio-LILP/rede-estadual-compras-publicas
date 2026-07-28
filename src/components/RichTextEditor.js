@@ -57,6 +57,9 @@ export default function RichTextEditor({ value, onChange, placeholder, className
         <ToolbarButton title="Itálico" onClick={() => insert('*', '*', 'texto em itálico')}>
           <em>I</em>
         </ToolbarButton>
+        <ToolbarButton title="Tachado" onClick={() => insert('~~', '~~', 'texto tachado')}>
+          <span style={{ textDecoration: 'line-through' }}>S</span>
+        </ToolbarButton>
         <ToolbarButton title="Citação" onClick={() => insert('\n> ', '\n', 'citação')}>
           <span className="text-lg leading-none">"</span>
         </ToolbarButton>
@@ -69,6 +72,9 @@ export default function RichTextEditor({ value, onChange, placeholder, className
         <div className="w-px h-5 bg-gray-200 mx-1" />
         <ToolbarButton title="Lista" onClick={() => insert('\n- ', '\n', 'item da lista')}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </ToolbarButton>
+        <ToolbarButton title="Lista numerada" onClick={() => insert('\n1. ', '\n', 'item da lista')}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
         </ToolbarButton>
         <ToolbarButton title="Link" onClick={() => insert('[', '](url)', 'texto do link')}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>

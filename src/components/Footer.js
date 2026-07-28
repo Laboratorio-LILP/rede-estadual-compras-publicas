@@ -40,20 +40,32 @@ export default function Footer() {
                 { label: 'Portal da Transparência', href: 'https://www.transparencia.sp.gov.br' },
                 { label: 'Serviço de Informação ao Cidadão', href: 'https://www.sic.sp.gov.br' },
                 { label: 'Acesso à Informação', href: 'https://www.transparencia.sp.gov.br/acesso-a-informacao' },
-                { label: 'Política de Privacidade', href: '#' },
+                { label: 'Termos de Uso e Privacidade', to: '/termos' },
               ].map(link => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
-                    target={link.href !== '#' ? '_blank' : undefined}
-                    rel="noopener noreferrer"
-                    className="text-xs transition-colors"
-                    style={{ color: '#9aa8c4' }}
-                    onMouseEnter={e => e.target.style.color = '#ffffff'}
-                    onMouseLeave={e => e.target.style.color = '#9aa8c4'}
-                  >
-                    {link.label}
-                  </a>
+                  {link.to ? (
+                    <Link
+                      to={link.to}
+                      className="text-xs transition-colors"
+                      style={{ color: '#9aa8c4' }}
+                      onMouseEnter={e => e.target.style.color = '#ffffff'}
+                      onMouseLeave={e => e.target.style.color = '#9aa8c4'}
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs transition-colors"
+                      style={{ color: '#9aa8c4' }}
+                      onMouseEnter={e => e.target.style.color = '#ffffff'}
+                      onMouseLeave={e => e.target.style.color = '#9aa8c4'}
+                    >
+                      {link.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

@@ -23,6 +23,7 @@ const ESTADO_NOMES = {
 export default function Register() {
   const [form, setForm] = useState({ username: '', email: '', password: '', organization: '', location: '' });
   const [selectedCats, setSelectedCats] = useState([]);
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -42,11 +43,15 @@ export default function Register() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    if (!acceptTerms) {
+      setError('É necessário aceitar os Termos de Uso para criar sua conta.');
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ ...form, category_ids: selectedCats }),
+        body: JSON.stringify({ ...form, category_ids: selectedCats, accept_terms: acceptTerms }),
       });
       login(data.token, data.user);
       navigate('/forum');
@@ -127,8 +132,25 @@ export default function Register() {
             </div>
           )}
 
-          <button type="submit" disabled={loading}
-            className="w-full bg-red-500 text-white py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition disabled:opacity-50">
+          <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={e => setAcceptTerms(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-red-500 focus:ring-red-300 flex-shrink-0"
+              required
+            />
+            <span className="text-xs text-gray-500 leading-relaxed">
+              Li e aceito os{' '}
+              <Link to="/termos" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-medium hover:underline">
+                Termos de Uso e a Política de Privacidade
+              </Link>{' '}
+              do Fórum RECPSP.
+            </span>
+          </label>
+
+          <button type="submit" disabled={loading || !acceptTerms}
+            className="w-full bg-red-500 text-white py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? 'Criando...' : 'Criar Conta'}
           </button>
         </form>
