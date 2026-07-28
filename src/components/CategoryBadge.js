@@ -73,7 +73,7 @@ export default function CategoryBadge({ id, name, color, className = '' }) {
     </>
   );
 
-  const classes = `inline-flex items-center gap-1.5 text-xs text-white px-2.5 py-1 rounded-full font-medium max-w-full ${className}`;
+  const classes = `inline-flex items-center gap-1.5 text-xs text-white px-2.5 py-1 rounded-md font-semibold max-w-full ${className}`;
 
   if (id == null) {
     return <span className={classes} style={{ backgroundColor: color }}>{content}</span>;

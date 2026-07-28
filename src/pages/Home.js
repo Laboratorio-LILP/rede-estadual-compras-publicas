@@ -199,10 +199,10 @@ export default function Home() {
         {/* Header da tabela */}
         <div className="flex items-center py-2.5 px-4 text-xs text-gray-500 font-medium uppercase tracking-wider border-b border-gray-200 bg-gray-50">
           <div className="flex-1">Tópico</div>
-          <div className="w-44 text-left hidden md:block mr-4">Categoria</div>
-          <div className="w-20 text-center font-bold text-gray-700 mr-4">Respostas</div>
-          <div className="w-24 text-center hidden sm:block mr-4">Visualizações</div>
-          <div className="w-28 text-right hidden lg:block">Atividade</div>
+          <div className="w-44 text-left hidden md:block mr-8">Categoria</div>
+          <div className="w-24 text-center font-bold text-gray-700 mr-8">Respostas</div>
+          <div className="w-28 text-center hidden sm:block mr-8">Visualizações</div>
+          <div className="w-32 text-right hidden lg:block">Atividade</div>
         </div>
 
         {/* Lista de tópicos */}
@@ -279,8 +279,8 @@ export default function Home() {
                     )}
                     <Link
                       to={`/topic/${topic.id}`}
-                      className={`font-medium text-sm hover:text-blue-600 transition truncate ${
-                        topic.status === 'pending' ? 'text-gray-500' : 'text-gray-800'
+                      className={`font-semibold text-sm hover:text-blue-600 transition truncate ${
+                        topic.status === 'pending' ? 'text-gray-500' : 'text-gray-900'
                       }`}
                     >
                       {topic.title}
@@ -295,9 +295,10 @@ export default function Home() {
                     )}
                   </div>
                   {topic.tags?.length > 0 && (
-                    <div className="flex gap-1.5 mt-1">
-                      {topic.tags.map(tag => (
-                        <span key={tag} className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-sm font-medium">
+                    <div className="flex flex-wrap items-center gap-x-1.5 mt-0.5 text-xs text-gray-500">
+                      {topic.tags.map((tag, idx) => (
+                        <span key={tag} className="flex items-center gap-1.5">
+                          {idx > 0 && <span className="text-gray-300" aria-hidden="true">·</span>}
                           {tag}
                         </span>
                       ))}
@@ -306,7 +307,7 @@ export default function Home() {
                 </div>
 
                 {/* Categoria badge */}
-                <div className="w-44 hidden md:flex justify-start mr-4">
+                <div className="w-44 hidden md:flex justify-start mr-8">
                   <CategoryBadge
                     id={topic.category_id}
                     name={topic.category_name}
@@ -315,17 +316,20 @@ export default function Home() {
                 </div>
 
                 {/* Respostas */}
-                <div className="w-20 text-center text-sm font-bold text-gray-800 mr-4">
+                <div className="w-24 text-center text-sm font-bold text-gray-800 mr-8">
                   {topic.reply_count}
                 </div>
 
                 {/* Views */}
-                <div className="w-24 text-center text-sm text-gray-500 hidden sm:block mr-4">
+                <div className="w-28 text-center text-sm text-gray-500 hidden sm:block mr-8">
                   {formatNumber(topic.views)}
                 </div>
 
                 {/* Atividade */}
-                <div className="w-28 text-right text-xs text-gray-400 hidden lg:block">
+                <div className="w-32 hidden lg:flex items-center justify-end gap-1.5 text-xs text-gray-400">
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                   {timeAgoLong(topic.last_activity)}
                 </div>
               </div>
