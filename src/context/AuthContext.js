@@ -24,6 +24,11 @@ export function AuthProvider({ children }) {
     localStorage.setItem('forum_user', JSON.stringify(userData));
   }
 
+  function updateUser(userData) {
+    setUser(userData);
+    localStorage.setItem('forum_user', JSON.stringify(userData));
+  }
+
   function logout() {
     setToken(null);
     setUser(null);
@@ -32,7 +37,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, updateUser, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

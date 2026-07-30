@@ -34,13 +34,7 @@ function ProfileSettings({ user, token, onClose, onUpdate, onLogout }) {
   const [msg, setMsg] = useState('');
   const [allCategories, setAllCategories] = useState([]);
   const [selectedCats, setSelectedCats] = useState([]);
-  // Especializacao
   const [specialties, setSpecialties] = useState([]);
-  const [specRequests, setSpecRequests] = useState([]);
-  const [specCat, setSpecCat] = useState('');
-  const [specJust, setSpecJust] = useState('');
-  const [specMsg, setSpecMsg] = useState('');
-  const [specSending, setSpecSending] = useState(false);
 
   // Fetch full profile + categories on mount
   useEffect(() => {
@@ -58,41 +52,15 @@ function ProfileSettings({ user, token, onClose, onUpdate, onLogout }) {
         if (data.categories) {
           setSelectedCats(data.categories.map(c => c.id));
         }
+        setSpecialties(data.specialties || []);
       } catch {}
       try {
         const cats = await apiFetch('/categories');
         setAllCategories(cats);
       } catch {}
-      try {
-        const spec = await apiFetch('/specialist/me', {}, token);
-        setSpecialties(spec.specialties || []);
-        setSpecRequests(spec.requests || []);
-      } catch {}
     }
     load();
   }, [token]);
-
-  async function handleSolicitarEspecializacao() {
-    if (!specCat) { setSpecMsg('Selecione um tema.'); return; }
-    setSpecSending(true);
-    setSpecMsg('');
-    try {
-      await apiFetch('/specialist/requests', {
-        method: 'POST',
-        body: JSON.stringify({ category_id: Number(specCat), justification: specJust }),
-      }, token);
-      const spec = await apiFetch('/specialist/me', {}, token);
-      setSpecialties(spec.specialties || []);
-      setSpecRequests(spec.requests || []);
-      setSpecCat('');
-      setSpecJust('');
-      setSpecMsg('Solicitação enviada! Um administrador vai analisar.');
-      setTimeout(() => setSpecMsg(''), 4000);
-    } catch (err) {
-      setSpecMsg(err.message);
-    }
-    setSpecSending(false);
-  }
 
   function toggleCategory(catId) {
     setSelectedCats(prev =>
@@ -265,7 +233,8 @@ function ProfileSettings({ user, token, onClose, onUpdate, onLogout }) {
               <p className="text-sm font-semibold text-gray-700">Especialização</p>
             </div>
             <p className="text-xs text-gray-500 mb-3">
-              Como especialista verificado, suas respostas no tema recebem o selo de resposta verificada.
+              A designação é feita exclusivamente pela administração. Especialistas recebem um selo
+              de resposta verificada nos temas designados.
             </p>
 
             {specialties.length > 0 && (
@@ -288,54 +257,11 @@ function ProfileSettings({ user, token, onClose, onUpdate, onLogout }) {
               </div>
             )}
 
-            {specRequests.length > 0 && (
-              <div className="mb-3 space-y-1.5">
-                {specRequests.map(r => (
-                  <div key={r.id} className="flex items-center justify-between gap-2 text-xs bg-gray-50 border border-gray-200 rounded px-2.5 py-1.5">
-                    <span className="text-gray-600 truncate">{r.category_name}</span>
-                    <span
-                      className={`flex-shrink-0 font-semibold px-1.5 py-0.5 rounded ${
-                        r.status === 'pending' ? 'bg-yellow-100 text-yellow-700'
-                        : r.status === 'approved' ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-600'
-                      }`}
-                    >
-                      {r.status === 'pending' ? 'Em análise' : r.status === 'approved' ? 'Aprovada' : 'Recusada'}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            {specialties.length === 0 && (
+              <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                Nenhuma especialização foi designada para este perfil.
+              </p>
             )}
-
-            <div className="space-y-2">
-              <select
-                value={specCat}
-                onChange={e => setSpecCat(e.target.value)}
-                className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400"
-              >
-                <option value="">Selecione um tema...</option>
-                {allCategories
-                  .filter(c => !specialties.some(s => s.id === c.id))
-                  .map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-              </select>
-              <textarea
-                value={specJust}
-                onChange={e => setSpecJust(e.target.value)}
-                rows={2}
-                placeholder="Conte sua experiência no tema (ajuda o administrador a avaliar)"
-                className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400 resize-none placeholder-gray-400"
-              />
-              <button
-                type="button"
-                onClick={handleSolicitarEspecializacao}
-                disabled={specSending}
-                className="text-sm text-white font-semibold px-4 py-2 rounded transition hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: '#034EA2' }}
-              >
-                {specSending ? 'Enviando...' : 'Solicitar especialização'}
-              </button>
-              {specMsg && <p className="text-xs text-gray-600">{specMsg}</p>}
-            </div>
           </div>
 
           {/* Email notifications */}
@@ -501,8 +427,8 @@ export default function Navbar() {
             {isInForum ? (
               <>
                 <Link to="/forum" className="transition hover:text-[#034EA2]">Fórum</Link>
-                <Link to="/categories" className="transition hover:text-[#034EA2]">Categoria</Link>
-                <Link to="/new-topic" className="transition hover:text-[#034EA2]">Novo</Link>
+                <Link to="/categories" className="transition hover:text-[#034EA2]">Categorias</Link>
+                <Link to="/new-topic" className="transition hover:text-[#034EA2]">Novo Tópico</Link>
               </>
             ) : (
               <>

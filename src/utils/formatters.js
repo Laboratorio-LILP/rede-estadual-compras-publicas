@@ -53,7 +53,7 @@ export function timeAgoLong(dateStr) {
   }
   if (diff < 31536000) {
     const mo = Math.floor(diff / 2592000);
-    return `há ${mo} mês${mo === 1 ? '' : 'es'}`;
+    return mo === 1 ? 'há 1 mês' : `há ${mo} meses`;
   }
   const y = Math.floor(diff / 31536000);
   return `há ${y} ano${y === 1 ? '' : 's'}`;

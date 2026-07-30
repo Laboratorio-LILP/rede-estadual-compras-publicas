@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ForumNoticeModal from './components/ForumNoticeModal';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -39,6 +40,7 @@ function App() {
         <BrowserRouter>
           <div className="min-h-screen bg-[#F8F9FB]">
             <Navbar />
+            <ForumNoticeModal />
             <main>
               <Routes>
               <Route path="/" element={<Portal />} />

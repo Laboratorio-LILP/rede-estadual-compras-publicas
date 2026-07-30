@@ -5,6 +5,7 @@ import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import RichTextEditor from '../components/RichTextEditor';
 import { getAvatarColor, formatNumber, getTagColor } from '../utils/formatters';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 // ============= Topic Type Icons =============
 // Todos usam currentColor: quem define a cor é o container do ícone.
@@ -318,12 +319,14 @@ export default function NewTopic() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 mb-4">
-        <Link to="/forum" className="hover:text-[#034EA2]">Fórum</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <span className="font-medium text-gray-700">Novo Tópico</span>
-      </div>
+      <Breadcrumbs
+        className="mb-4"
+        items={[
+          { label: 'Início', to: '/' },
+          { label: 'Fórum de Discussões', to: '/forum' },
+          { label: 'Novo Tópico' },
+        ]}
+      />
 
       {/* Cabeçalho */}
       <div className="flex items-start gap-3 mb-6">
@@ -336,7 +339,7 @@ export default function NewTopic() {
           </svg>
         </div>
         <div>
-          <h1 className="font-montserrat text-2xl font-extrabold text-gray-900 leading-tight">Criar novo tópico</h1>
+          <h1 className="font-montserrat text-2xl font-extrabold text-gray-900 leading-tight">Criar Novo Tópico</h1>
           <p className="text-sm text-gray-500 mt-0.5">Compartilhe sua dúvida, experiência ou contribuição com a Rede.</p>
         </div>
       </div>

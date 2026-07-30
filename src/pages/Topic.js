@@ -2,20 +2,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import FormattedContent from '../components/FormattedContent';
 import RichTextEditor from '../components/RichTextEditor';
-import { getAvatarColor, timeAgo, formatNumber, formatDate } from '../utils/formatters';
+import { getAvatarColor, formatNumber, formatDate } from '../utils/formatters';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 // Icons
-function HeartIcon({ filled, className }) {
-  return (
-    <svg className={className} fill={filled ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-    </svg>
-  );
-}
-
 function ReplyIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -393,16 +386,15 @@ export default function Topic() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 mb-4">
-        <Link to="/" className="hover:text-blue-600">Início</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <Link to="/forum" className="hover:text-blue-600">Fórum</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <Link to={`/category/${topic.category_id}`} className="hover:text-blue-600">{topic.category_name}</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <span className="text-gray-600 font-medium">{topic.title}</span>
-      </div>
+      <Breadcrumbs
+        className="mb-4"
+        items={[
+          { label: 'Início', to: '/' },
+          { label: 'Fórum de Discussões', to: '/forum' },
+          { label: topic.category_name, to: `/category/${topic.category_id}` },
+          { label: topic.title },
+        ]}
+      />
 
       {/* Banner de moderação */}
       {topic.status === 'pending' && (

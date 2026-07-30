@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarColor, timeAgo, formatTime } from '../utils/formatters';
@@ -222,8 +222,6 @@ function Conversation({ userId, token, currentUser }) {
 export default function Messages() {
   const { userId } = useParams();
   const { user, token } = useAuth();
-  const navigate = useNavigate();
-
   if (!user) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 text-center">

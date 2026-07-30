@@ -117,7 +117,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t pt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
           <p className="text-xs" style={{ color: '#6b7a99' }}>
-            © 2025 RECPSP — Governo do Estado de São Paulo. Todos os direitos reservados.
+            © {new Date().getFullYear()} RECPSP — Governo do Estado de São Paulo. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FF161F' }} />

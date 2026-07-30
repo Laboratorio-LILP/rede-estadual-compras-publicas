@@ -4,6 +4,7 @@ import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarColor } from '../utils/formatters';
 import { useState } from 'react';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 function formatDateLong(dateStr) {
   if (!dateStr) return '';
@@ -77,14 +78,14 @@ export default function UserProfile() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 mb-5">
-        <Link to="/" className="hover:text-blue-600">Início</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <Link to="/forum" className="hover:text-blue-600">Fórum</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <span className="font-medium text-gray-700">{profile.username}</span>
-      </div>
+      <Breadcrumbs
+        className="mb-5"
+        items={[
+          { label: 'Início', to: '/' },
+          { label: 'Fórum de Discussões', to: '/forum' },
+          { label: profile.username },
+        ]}
+      />
 
       {/* Card principal */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

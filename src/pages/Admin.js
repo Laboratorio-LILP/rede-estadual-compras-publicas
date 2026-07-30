@@ -18,12 +18,14 @@ function timeAgoAdmin(dateStr) {
 
 const ROLE_LABELS = {
   user: 'Usuário',
+  especialista: 'Especialista',
   moderator: 'Moderador',
   admin: 'Admin',
 };
 
 const ROLE_STYLES = {
   user: 'bg-gray-100 text-gray-600',
+  especialista: 'bg-emerald-100 text-emerald-700',
   moderator: 'bg-blue-100 text-blue-700',
   admin: 'bg-yellow-100 text-yellow-700',
 };
@@ -94,6 +96,10 @@ export default function Admin() {
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [userStatusFilter, setUserStatusFilter] = useState('all');
+  const [specialtyUserId, setSpecialtyUserId] = useState('');
+  const [specialtyCategoryId, setSpecialtyCategoryId] = useState('');
+  const [specialtySaving, setSpecialtySaving] = useState(false);
+  const [specialtyMsg, setSpecialtyMsg] = useState('');
 
   useEffect(() => {
     if (user && user.role !== 'admin' && user.role !== 'moderator') navigate('/');
@@ -117,22 +123,33 @@ export default function Admin() {
     refetchUsers();
   }
 
-  // ====== Solicitacoes de especialista ======
-  const { data: specRequests, refetch: refetchSpecRequests } = useQuery({
-    queryKey: ['admin-specialist-requests'],
-    queryFn: () => apiFetch('/admin/specialist/requests', {}, token),
-    enabled: !!token && user?.role === 'admin',
-  });
-  const specPending = specRequests?.filter(r => r.status === 'pending') || [];
-
-  async function handleSpecReview(id, status) {
+  // ====== Designacao de especialistas ======
+  async function handleGrantSpecialty() {
+    if (!specialtyUserId || !specialtyCategoryId) {
+      setSpecialtyMsg('Selecione a pessoa e o tema.');
+      return;
+    }
+    setSpecialtySaving(true);
+    setSpecialtyMsg('');
     try {
-      await apiFetch(`/admin/specialist/requests/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
+      await apiFetch(`/admin/users/${specialtyUserId}/specialties/${specialtyCategoryId}`, {
+        method: 'POST',
       }, token);
-      refetchSpecRequests();
-      refetchUsers();
+      await refetchUsers();
+      setSpecialtyCategoryId('');
+      setSpecialtyMsg('Especialização designada com sucesso.');
+    } catch (err) {
+      setSpecialtyMsg(err.message);
+    } finally {
+      setSpecialtySaving(false);
+    }
+  }
+
+  async function handleRevokeSpecialty(userId, categoryId, username, categoryName) {
+    if (!window.confirm(`Remover a designação de ${username} em "${categoryName}"?`)) return;
+    try {
+      await apiFetch(`/admin/users/${userId}/specialties/${categoryId}`, { method: 'DELETE' }, token);
+      await refetchUsers();
     } catch (err) {
       alert(err.message);
     }
@@ -248,6 +265,13 @@ export default function Admin() {
   if (!user || (user.role !== 'admin' && user.role !== 'moderator')) return null;
 
   const pendingCount = pendingTopics?.length || 0;
+  const selectedSpecialtyUser = users?.find(u => String(u.id) === specialtyUserId);
+  const availableSpecialtyCategories = allCategories?.filter(
+    category => !selectedSpecialtyUser?.specialties?.some(specialty => specialty.id === category.id)
+  ) || [];
+  const specialistAssignments = (users || []).flatMap(specialist =>
+    (specialist.specialties || []).map(specialty => ({ specialist, specialty }))
+  );
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -290,7 +314,7 @@ export default function Admin() {
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Especialistas ({specPending.length})
+              Especialistas ({specialistAssignments.length})
             </button>
             <button
               onClick={() => setActiveTab('resources')}
@@ -457,6 +481,7 @@ export default function Admin() {
                     { key: 'all', label: 'Todos' },
                     { key: 'admin', label: 'Admin', style: 'bg-yellow-100 text-yellow-700' },
                     { key: 'moderator', label: 'Moderador', style: 'bg-blue-100 text-blue-700' },
+                    { key: 'especialista', label: 'Especialista', style: 'bg-emerald-100 text-emerald-700' },
                     { key: 'user', label: 'Usuário', style: 'bg-gray-100 text-gray-600' },
                   ].map(f => (
                     <button
@@ -540,7 +565,7 @@ export default function Admin() {
                     </td>
                     <td className="px-5 py-3 text-gray-500 hidden sm:table-cell">{u.email}</td>
                     <td className="px-5 py-3">
-                      {u.id !== user.id ? (
+                      {u.id !== user.id && u.role !== 'especialista' ? (
                         <select
                           value={u.role}
                           onChange={e => handleChangeRole(u.id, e.target.value)}
@@ -624,77 +649,116 @@ export default function Admin() {
       {/* ====== Aba Capacitação (admin only) ====== */}
       {/* ====== Aba Especialistas ====== */}
       {activeTab === 'specialists' && user.role === 'admin' && (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Solicitações de especialização ({specPending.length} pendente{specPending.length === 1 ? '' : 's'})
-            </span>
-            {specPending.length === 0 && (
-              <span className="text-xs text-green-600 font-medium">Nenhuma solicitação pendente</span>
+        <div className="space-y-4">
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 bg-gray-50 px-5 py-3">
+              <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                Designar especialista
+              </span>
+            </div>
+            <div className="grid gap-3 px-5 py-5 sm:grid-cols-[1fr_1fr_auto]">
+              <select
+                value={specialtyUserId}
+                onChange={e => {
+                  setSpecialtyUserId(e.target.value);
+                  setSpecialtyCategoryId('');
+                  setSpecialtyMsg('');
+                }}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
+              >
+                <option value="">Selecione a pessoa...</option>
+                {users?.map(candidate => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.username}{candidate.organization ? ` — ${candidate.organization}` : ''}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={specialtyCategoryId}
+                onChange={e => {
+                  setSpecialtyCategoryId(e.target.value);
+                  setSpecialtyMsg('');
+                }}
+                disabled={!specialtyUserId || availableSpecialtyCategories.length === 0}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 disabled:cursor-not-allowed disabled:bg-gray-100"
+              >
+                <option value="">
+                  {specialtyUserId && availableSpecialtyCategories.length === 0
+                    ? 'Todos os temas já foram designados'
+                    : 'Selecione o tema...'}
+                </option>
+                {availableSpecialtyCategories.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleGrantSpecialty}
+                disabled={specialtySaving || !specialtyUserId || !specialtyCategoryId}
+                className="rounded-lg bg-[#034EA2] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {specialtySaving ? 'Designando...' : 'Designar'}
+              </button>
+            </div>
+            {specialtyMsg && (
+              <p className="px-5 pb-4 text-xs font-medium text-gray-600">{specialtyMsg}</p>
             )}
           </div>
 
-          {!specRequests || specRequests.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-12 h-12 text-gray-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm text-gray-400">Nenhuma solicitação recebida</p>
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-5 py-3">
+              <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                Designações ativas ({specialistAssignments.length})
+              </span>
+              <span className="text-xs text-gray-400">Somente administradores podem alterar</span>
             </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {specRequests.map(r => (
-                <div key={r.id} className="px-5 py-4">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <Link to={`/user/${r.user_id}`} className="font-semibold text-sm text-gray-800 hover:text-blue-600 transition">
-                          {r.username}
-                        </Link>
-                        <span
-                          className="text-xs font-medium text-white px-2 py-0.5 rounded-sm"
-                          style={{ backgroundColor: r.category_color || '#6366f1' }}
-                        >
-                          {r.category_name}
-                        </span>
-                        <span
-                          className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-                            r.status === 'pending' ? 'bg-yellow-100 text-yellow-700'
-                            : r.status === 'approved' ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-600'
-                          }`}
-                        >
-                          {r.status === 'pending' ? 'Em análise' : r.status === 'approved' ? 'Aprovada' : 'Recusada'}
-                        </span>
-                      </div>
-                      {r.organization && <p className="text-xs text-gray-400 mb-1">{r.organization}</p>}
-                      {r.justification && (
-                        <p className="text-sm text-gray-600 leading-relaxed">{r.justification}</p>
+            {specialistAssignments.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-gray-400">
+                Nenhuma especialização designada.
+              </p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {specialistAssignments.map(({ specialist, specialty }) => (
+                  <div
+                    key={`${specialist.id}-${specialty.id}`}
+                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+                  >
+                    <div>
+                      <Link
+                        to={`/user/${specialist.id}`}
+                        className="text-sm font-semibold text-gray-800 transition hover:text-blue-600"
+                      >
+                        {specialist.username}
+                      </Link>
+                      {specialist.organization && (
+                        <p className="mt-0.5 text-xs text-gray-400">{specialist.organization}</p>
                       )}
                     </div>
-
-                    {r.status === 'pending' && (
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => handleSpecReview(r.id, 'approved')}
-                          className="text-xs font-semibold text-white px-3 py-1.5 rounded transition hover:opacity-90"
-                          style={{ backgroundColor: '#0B9247' }}
-                        >
-                          Aprovar
-                        </button>
-                        <button
-                          onClick={() => handleSpecReview(r.id, 'rejected')}
-                          className="text-xs font-semibold px-3 py-1.5 rounded border border-gray-300 text-gray-600 transition hover:bg-gray-50"
-                        >
-                          Recusar
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="rounded-sm px-2 py-0.5 text-xs font-medium text-white"
+                        style={{ backgroundColor: specialty.color || '#6366f1' }}
+                      >
+                        {specialty.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeSpecialty(
+                          specialist.id,
+                          specialty.id,
+                          specialist.username,
+                          specialty.name
+                        )}
+                        className="rounded border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                      >
+                        Revogar
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

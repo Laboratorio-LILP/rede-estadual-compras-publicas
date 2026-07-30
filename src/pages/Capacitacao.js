@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, Children } from 'react';
-import { Link } from 'react-router-dom';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 const PORTAL_OFICIAL = 'https://compras.sp.gov.br/agente-publico/capacitacao/';
 
@@ -904,12 +904,13 @@ export default function Capacitacao() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-16">
-      {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 mt-4 mb-4">
-        <Link to="/" className="hover:text-[#034EA2]">Início</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <span className="font-medium text-gray-700">Capacitação</span>
-      </div>
+      <Breadcrumbs
+        className="mb-4 mt-4"
+        items={[
+          { label: 'Início', to: '/' },
+          { label: 'Capacitação' },
+        ]}
+      />
 
       {/* Hero */}
       <section

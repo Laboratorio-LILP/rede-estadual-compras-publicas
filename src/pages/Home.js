@@ -4,6 +4,7 @@ import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { getAvatarColor, timeAgoLong, formatNumber } from '../utils/formatters';
 import CategoryBadge from '../components/CategoryBadge';
+import Breadcrumbs from '../components/Breadcrumbs';
 import { useState } from 'react';
 
 const PER_PAGE_OPTIONS = [10, 20, 50];
@@ -125,12 +126,13 @@ export default function Home() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 mb-4">
-        <Link to="/" className="hover:text-[#034EA2]">Início</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <span className="font-medium text-gray-700">Fórum</span>
-      </div>
+      <Breadcrumbs
+        className="mb-4"
+        items={[
+          { label: 'Início', to: '/' },
+          { label: 'Fórum de Discussões' },
+        ]}
+      />
 
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -156,7 +158,7 @@ export default function Home() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          Novo tópico
+          Novo Tópico
         </Link>
       </div>
 
@@ -251,9 +253,10 @@ export default function Home() {
                   </Link>
                 </div>
 
-                {/* Título + tags */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
+                {/* Título + tags, alinhados após os ícones de estado */}
+                <div className="flex flex-1 min-w-0 items-start gap-1.5">
+                  {(topic.pinned === 1 || topic.locked === 1 || user?.role === 'admin') && (
+                    <div className="flex flex-shrink-0 items-center gap-1 pt-0.5">
                     {topic.pinned === 1 && <span className="text-gray-400 text-sm" title="Fixado">&#x1F4CC;</span>}
                     {topic.locked === 1 && (
                       user?.role === 'admin' ? (
@@ -277,33 +280,38 @@ export default function Home() {
                         </svg>
                       </button>
                     )}
-                    <Link
-                      to={`/topic/${topic.id}`}
-                      className={`font-semibold text-sm hover:text-blue-600 transition truncate ${
-                        topic.status === 'pending' ? 'text-gray-500' : 'text-gray-900'
-                      }`}
-                    >
-                      {topic.title}
-                    </Link>
-                    {topic.status === 'pending' && (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex-shrink-0">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Em análise
-                      </span>
-                    )}
-                  </div>
-                  {topic.tags?.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-x-1.5 mt-0.5 text-xs text-gray-500">
-                      {topic.tags.map((tag, idx) => (
-                        <span key={tag} className="flex items-center gap-1.5">
-                          {idx > 0 && <span className="text-gray-300" aria-hidden="true">·</span>}
-                          {tag}
-                        </span>
-                      ))}
                     </div>
                   )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        to={`/topic/${topic.id}`}
+                        className={`font-semibold text-sm hover:text-blue-600 transition truncate ${
+                          topic.status === 'pending' ? 'text-gray-500' : 'text-gray-900'
+                        }`}
+                      >
+                        {topic.title}
+                      </Link>
+                      {topic.status === 'pending' && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Em análise
+                        </span>
+                      )}
+                    </div>
+                    {topic.tags?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-x-1.5 mt-0.5 text-xs text-gray-500">
+                        {topic.tags.map((tag, idx) => (
+                          <span key={tag} className="flex items-center gap-1.5">
+                            {idx > 0 && <span className="text-gray-300" aria-hidden="true">·</span>}
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Categoria badge */}

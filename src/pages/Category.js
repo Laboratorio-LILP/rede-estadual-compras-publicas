@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { getAvatarColor, timeAgo, formatNumber } from '../utils/formatters';
+import { getAvatarColor, formatNumber } from '../utils/formatters';
 import { useState } from 'react';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 const SORT_OPTIONS = [
   { key: '', label: 'Recentes' },
@@ -57,16 +58,15 @@ export default function Category() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Breadcrumb */}
-      <div className="text-sm text-gray-500 mb-4">
-        <Link to="/" className="hover:text-blue-600">Início</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <Link to="/forum" className="hover:text-blue-600">Fórum</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <Link to="/categories" className="hover:text-blue-600">Categorias</Link>
-        <span className="mx-2 text-gray-300">/</span>
-        <span className="font-medium" style={{ color: category?.color }}>{category?.name}</span>
-      </div>
+      <Breadcrumbs
+        className="mb-4"
+        items={[
+          { label: 'Início', to: '/' },
+          { label: 'Fórum de Discussões', to: '/forum' },
+          { label: 'Categorias', to: '/categories' },
+          { label: category?.name || 'Categoria', color: category?.color },
+        ]}
+      />
 
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
@@ -166,51 +166,57 @@ export default function Category() {
                 </div>
               </Link>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                {topic.pinned === 1 && <span className="text-gray-400 text-sm" title="Fixado">&#x1F4CC;</span>}
-                {topic.locked === 1 && (
-                  user?.role === 'admin' ? (
-                    <button onClick={() => handleLock(topic.id)} title="Desbloquear tópico" className="text-gray-400 hover:text-green-500 transition">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+            <div className="flex flex-1 min-w-0 items-start gap-1.5">
+              {(topic.pinned === 1 || topic.locked === 1 || user?.role === 'admin') && (
+                <div className="flex flex-shrink-0 items-center gap-1 pt-0.5">
+                  {topic.pinned === 1 && <span className="text-gray-400 text-sm" title="Fixado">&#x1F4CC;</span>}
+                  {topic.locked === 1 && (
+                    user?.role === 'admin' ? (
+                      <button onClick={() => handleLock(topic.id)} title="Desbloquear tópico" className="text-gray-400 hover:text-green-500 transition">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" title="Bloqueado">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
+                    )
+                  )}
+                  {topic.locked !== 1 && user?.role === 'admin' && (
+                    <button onClick={() => handleLock(topic.id)} title="Bloquear tópico"
+                      className="text-gray-200 hover:text-red-400 transition opacity-0 group-hover:opacity-100">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                      </svg>
                     </button>
-                  ) : (
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" title="Bloqueado">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  )
-                )}
-                {topic.locked !== 1 && user?.role === 'admin' && (
-                  <button onClick={() => handleLock(topic.id)} title="Bloquear tópico"
-                    className="text-gray-200 hover:text-red-400 transition opacity-0 group-hover:opacity-100">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                )}
-                <Link to={`/topic/${topic.id}`} className={`font-medium text-sm hover:text-blue-600 transition truncate ${
-                  topic.status === 'pending' ? 'text-gray-500' : 'text-gray-800'
-                }`}>
-                  {topic.title}
-                </Link>
-                {topic.status === 'pending' && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex-shrink-0">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Em análise
-                  </span>
-                )}
-              </div>
-              {topic.tags?.length > 0 && (
-                <div className="flex gap-1.5 mt-1">
-                  {topic.tags.map(tag => (
-                    <span key={tag} className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-sm font-medium">{tag}</span>
-                  ))}
+                  )}
                 </div>
               )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Link to={`/topic/${topic.id}`} className={`font-medium text-sm hover:text-blue-600 transition truncate ${
+                    topic.status === 'pending' ? 'text-gray-500' : 'text-gray-800'
+                  }`}>
+                    {topic.title}
+                  </Link>
+                  {topic.status === 'pending' && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Em análise
+                    </span>
+                  )}
+                </div>
+                {topic.tags?.length > 0 && (
+                  <div className="flex gap-1.5 mt-1">
+                    {topic.tags.map(tag => (
+                      <span key={tag} className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-sm font-medium">{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="w-20 text-center text-sm font-bold text-gray-800 mr-4">{topic.reply_count}</div>
             <div className="w-28 text-center text-sm text-gray-500 hidden sm:block">{formatNumber(topic.views)}</div>

@@ -28,6 +28,15 @@ db.function('normalize_text', (text) => {
   return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 });
 
+function capitalizeInitial(value) {
+  const text = String(value ?? '').trim();
+  const firstLetter = text.search(/[A-Za-zÀ-ÖØ-öø-ÿ]/);
+  if (firstLetter < 0) return text;
+  return text.slice(0, firstLetter)
+    + text[firstLetter].toLocaleUpperCase('pt-BR')
+    + text.slice(firstLetter + 1);
+}
+
 // =================== SCHEMA ===================
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -205,6 +214,9 @@ try { db.exec('ALTER TABLE topics ADD COLUMN status TEXT DEFAULT "approved"'); }
 
 // Adicionar coluna de aceite dos termos de uso
 try { db.prepare('ALTER TABLE users ADD COLUMN terms_accepted_at DATETIME').run(); } catch {}
+
+// Adicionar coluna de aceite do comunicado de primeiro acesso ao forum
+try { db.prepare('ALTER TABLE users ADD COLUMN forum_notice_accepted_at DATETIME').run(); } catch {}
 
 // Tabela de categorias do usuario (interesses)
 db.exec(`
@@ -540,46 +552,6 @@ for (const [oldName, newName] of tagFixes) {
   try { db.prepare('UPDATE tags SET name = ? WHERE name = ?').run(newName, oldName); } catch {}
 }
 
-// =================== ESPECIALISTAS DE EXEMPLO ===================
-// Roda UMA UNICA VEZ, em banco sem nenhuma especializacao/solicitacao.
-// Depois disso o seed nunca mais interfere: revogar ou recusar pelo painel
-// admin e' definitivo e nao volta atras no proximo restart.
-const especialistasDemo = [
-  ['MariaLicitacao', 'Licitação'],
-  ['JoaoContratos', 'Obras Públicas'],
-  ['AnaSustentavel', 'Sustentabilidade'],
-  ['FernandaGestao', 'Governança'],
-];
-try {
-  const totalEspecialidades = db.prepare('SELECT COUNT(*) as c FROM user_specialties').get().c;
-  const totalSolicitacoes = db.prepare('SELECT COUNT(*) as c FROM specialist_requests').get().c;
-
-  if (totalEspecialidades === 0 && totalSolicitacoes === 0) {
-    const adminId = db.prepare("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get()?.id ?? null;
-    for (const [username, catName] of especialistasDemo) {
-      const u = db.prepare('SELECT id, role FROM users WHERE username = ?').get(username);
-      const c = db.prepare('SELECT id FROM categories WHERE name = ?').get(catName);
-      if (!u || !c) continue;
-      db.prepare('INSERT OR IGNORE INTO user_specialties (user_id, category_id, granted_by) VALUES (?, ?, ?)').run(u.id, c.id, adminId);
-      db.prepare("UPDATE users SET role = 'especialista' WHERE id = ? AND role = 'user'").run(u.id);
-    }
-    // Uma solicitacao pendente, para o admin ter o que analisar na demonstracao
-    const carlos = db.prepare('SELECT id FROM users WHERE username = ?').get('CarlosPregao');
-    const catDireta = db.prepare('SELECT id FROM categories WHERE name = ?').get('Contratação Direta');
-    if (carlos && catDireta) {
-      db.prepare(`INSERT INTO specialist_requests (user_id, category_id, justification, status)
-                  VALUES (?, ?, ?, 'pending')`)
-        .run(carlos.id, catDireta.id, 'Atuo há 8 anos com dispensa e inexigibilidade de licitação no Governo do Estado da Bahia.');
-    }
-    const criadas = db.prepare('SELECT COUNT(*) as c FROM user_specialties').get().c;
-    console.log(`[especialistas] seed inicial aplicado: ${criadas} especializações + 1 solicitação pendente`);
-  } else {
-    console.log(`[especialistas] ${totalEspecialidades} especializações ativas (seed já aplicado)`);
-  }
-} catch (err) {
-  console.log('[especialistas] erro ao aplicar seed:', err.message);
-}
-
 // =================== MIDDLEWARES ===================
 const ALLOWED_ORIGINS = [
   'https://recpsp.onrender.com',
@@ -687,7 +659,9 @@ app.post('/api/auth/register', authLimiter, (req, res) => {
       }
     }
 
-    const user = db.prepare('SELECT id, username, email, role FROM users WHERE id = ?').get(userId);
+    const user = db.prepare('SELECT id, username, email, role, forum_notice_accepted_at FROM users WHERE id = ?').get(userId);
+    user.forum_notice_accepted = !!user.forum_notice_accepted_at;
+    delete user.forum_notice_accepted_at;
     const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, user });
   } catch (err) {
@@ -702,14 +676,28 @@ app.post('/api/auth/login', authLimiter, (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Email ou senha invalidos' });
   if (user.banned) return res.status(403).json({ error: 'Sua conta foi banida' });
   const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
+  res.json({
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      forum_notice_accepted: !!user.forum_notice_accepted_at,
+    },
+  });
 });
 
 // =================== PERFIL ===================
 
 app.get('/api/auth/me', auth, (req, res) => {
-  const user = db.prepare('SELECT id, username, email, role, location, organization, bio FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare(`
+    SELECT id, username, email, role, location, organization, bio, forum_notice_accepted_at
+    FROM users WHERE id = ?
+  `).get(req.user.id);
   if (!user) return res.status(404).json({ error: 'Usuario nao encontrado' });
+  user.forum_notice_accepted = !!user.forum_notice_accepted_at;
+  delete user.forum_notice_accepted_at;
   user.categories = db.prepare(`
     SELECT c.id, c.name, c.color FROM user_categories uc
     JOIN categories c ON uc.category_id = c.id
@@ -721,6 +709,16 @@ app.get('/api/auth/me', auth, (req, res) => {
     WHERE us.user_id = ? ORDER BY c.name
   `).all(req.user.id);
   res.json(user);
+});
+
+app.post('/api/auth/forum-notice/accept', auth, (req, res) => {
+  db.prepare(`
+    UPDATE users
+    SET forum_notice_accepted_at = COALESCE(forum_notice_accepted_at, CURRENT_TIMESTAMP)
+    WHERE id = ?
+  `).run(req.user.id);
+  const accepted = db.prepare('SELECT forum_notice_accepted_at FROM users WHERE id = ?').get(req.user.id);
+  res.json({ ok: true, accepted_at: accepted.forum_notice_accepted_at });
 });
 
 app.put('/api/auth/profile', auth, (req, res) => {
@@ -895,15 +893,21 @@ app.get('/api/categories', (req, res) => {
 
 app.post('/api/categories', auth, adminOnly, (req, res) => {
   const { name, description, color } = req.body;
-  if (!name) return res.status(400).json({ error: 'Nome obrigatorio' });
-  const result = db.prepare('INSERT INTO categories (name, description, color) VALUES (?, ?, ?)').run(name, description || '', color || '#6366f1');
+  const normalizedName = capitalizeInitial(name);
+  if (!normalizedName) return res.status(400).json({ error: 'Nome obrigatorio' });
+  const result = db.prepare('INSERT INTO categories (name, description, color) VALUES (?, ?, ?)')
+    .run(normalizedName, description || '', color || '#6366f1');
   res.json(db.prepare('SELECT * FROM categories WHERE id = ?').get(result.lastInsertRowid));
 });
 
 app.put('/api/categories/:id', auth, adminOnly, (req, res) => {
   const { name, description, color } = req.body;
+  const normalizedName = name === undefined || name === null ? null : capitalizeInitial(name);
+  if (name !== undefined && name !== null && !normalizedName) {
+    return res.status(400).json({ error: 'Nome obrigatorio' });
+  }
   db.prepare('UPDATE categories SET name = COALESCE(?, name), description = COALESCE(?, description), color = COALESCE(?, color) WHERE id = ?')
-    .run(name, description, color, req.params.id);
+    .run(normalizedName, description, color, req.params.id);
   res.json(db.prepare('SELECT * FROM categories WHERE id = ?').get(req.params.id));
 });
 
@@ -920,10 +924,11 @@ app.get('/api/tags', (req, res) => {
 
 app.post('/api/tags', auth, adminOnly, (req, res) => {
   const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Nome obrigatorio' });
+  const normalizedName = capitalizeInitial(name);
+  if (!normalizedName) return res.status(400).json({ error: 'Nome obrigatorio' });
   try {
-    const result = db.prepare('INSERT INTO tags (name) VALUES (?)').run(name);
-    res.json({ id: result.lastInsertRowid, name });
+    const result = db.prepare('INSERT INTO tags (name) VALUES (?)').run(normalizedName);
+    res.json({ id: result.lastInsertRowid, name: normalizedName });
   } catch {
     res.status(400).json({ error: 'Tag ja existe' });
   }
@@ -1051,8 +1056,9 @@ app.get('/api/categories/:id/topics', optionalAuth, (req, res) => {
 
 app.post('/api/topics', auth, (req, res) => {
   const { title, category_id, content, tags, type, poll_options, image_url, video_url } = req.body;
-  if (!title || !category_id || !content) return res.status(400).json({ error: 'Titulo, categoria e conteudo obrigatorios' });
-  if (title.length > 200) return res.status(400).json({ error: 'Título deve ter no máximo 200 caracteres' });
+  const normalizedTitle = capitalizeInitial(title);
+  if (!normalizedTitle || !category_id || !content) return res.status(400).json({ error: 'Titulo, categoria e conteudo obrigatorios' });
+  if (normalizedTitle.length > 200) return res.status(400).json({ error: 'Título deve ter no máximo 200 caracteres' });
   if (content.length > 50000) return res.status(400).json({ error: 'Conteúdo muito longo' });
 
   const user = db.prepare('SELECT banned FROM users WHERE id = ?').get(req.user.id);
@@ -1070,7 +1076,7 @@ app.post('/api/topics', auth, (req, res) => {
   const topicStatus = (hasMedia && !isAdminOrMod) ? 'pending' : 'approved';
 
   const topicResult = db.prepare('INSERT INTO topics (title, category_id, user_id, type, image_url, video_url, status) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(title, category_id, req.user.id, type || 'discussion', image_url || '', video_url || '', topicStatus);
+    .run(normalizedTitle, category_id, req.user.id, type || 'discussion', image_url || '', video_url || '', topicStatus);
   db.prepare('INSERT INTO posts (content, topic_id, user_id) VALUES (?, ?, ?)').run(content, topicResult.lastInsertRowid, req.user.id);
 
   // Criar opcoes de votacao
@@ -1084,9 +1090,11 @@ app.post('/api/topics', auth, (req, res) => {
 
   if (tags && Array.isArray(tags)) {
     for (const tagName of tags) {
-      let tag = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName);
+      const normalizedTagName = capitalizeInitial(tagName);
+      if (!normalizedTagName) continue;
+      let tag = db.prepare('SELECT id FROM tags WHERE name = ?').get(normalizedTagName);
       if (!tag) {
-        const r = db.prepare('INSERT INTO tags (name) VALUES (?)').run(tagName);
+        const r = db.prepare('INSERT INTO tags (name) VALUES (?)').run(normalizedTagName);
         tag = { id: r.lastInsertRowid };
       }
       db.prepare('INSERT OR IGNORE INTO topic_tags (topic_id, tag_id) VALUES (?, ?)').run(topicResult.lastInsertRowid, tag.id);
@@ -1504,14 +1512,16 @@ app.post('/api/admin/resources/import-playlist', auth, adminOnly, async (req, re
 // Adicionar recurso individual (curso, link, vídeo avulso)
 app.post('/api/admin/resources', auth, adminOnly, (req, res) => {
   const { title, url, type, source } = req.body;
-  if (!title || !url) return res.status(400).json({ error: 'Título e URL são obrigatórios' });
+  const normalizedTitle = capitalizeInitial(title);
+  if (!normalizedTitle || !url) return res.status(400).json({ error: 'Título e URL são obrigatórios' });
   const resourceType = type || (url.includes('youtube.com') || url.includes('youtu.be') ? 'video' : 'curso');
   const resourceSource = source || (url.includes('youtube.com') || url.includes('youtu.be') ? 'youtube' : 'externo');
   try {
     const existing = db.prepare('SELECT id FROM resources WHERE url = ?').get(url);
     if (existing) return res.status(409).json({ error: 'Este recurso já existe' });
-    const result = db.prepare('INSERT INTO resources (title, url, type, source) VALUES (?, ?, ?, ?)').run(title, url, resourceType, resourceSource);
-    res.json({ id: result.lastInsertRowid, title, url, type: resourceType, source: resourceSource });
+    const result = db.prepare('INSERT INTO resources (title, url, type, source) VALUES (?, ?, ?, ?)')
+      .run(normalizedTitle, url, resourceType, resourceSource);
+    res.json({ id: result.lastInsertRowid, title: normalizedTitle, url, type: resourceType, source: resourceSource });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1525,14 +1535,25 @@ app.delete('/api/admin/resources/:id', auth, adminOnly, (req, res) => {
 // =================== ADMIN ===================
 
 app.get('/api/admin/users', auth, adminOnly, (req, res) => {
-  const users = db.prepare('SELECT id, username, email, role, banned, created_at FROM users ORDER BY created_at DESC').all();
+  const users = db.prepare(`
+    SELECT id, username, email, organization, role, banned, created_at
+    FROM users ORDER BY created_at DESC
+  `).all();
   const catStmt = db.prepare(`
     SELECT c.id, c.name, c.color FROM user_categories uc
     JOIN categories c ON uc.category_id = c.id
     WHERE uc.user_id = ?
   `);
+  const specialtyStmt = db.prepare(`
+    SELECT c.id, c.name, c.color, us.created_at
+    FROM user_specialties us
+    JOIN categories c ON us.category_id = c.id
+    WHERE us.user_id = ?
+    ORDER BY c.name
+  `);
   for (const u of users) {
     u.categories = catStmt.all(u.id);
+    u.specialties = specialtyStmt.all(u.id);
   }
   res.json(users);
 });
@@ -1616,6 +1637,8 @@ app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
     db.prepare('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?').run(req.params.id, req.params.id);
     db.prepare('DELETE FROM notifications WHERE user_id = ?').run(req.params.id);
     db.prepare('DELETE FROM user_categories WHERE user_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM user_specialties WHERE user_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM specialist_requests WHERE user_id = ?').run(req.params.id);
 
     // Limpar posts do usuario (em topicos de outros)
     db.prepare('DELETE FROM posts WHERE user_id = ?').run(req.params.id);
@@ -1643,121 +1666,58 @@ app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
 
 app.put('/api/admin/users/:id/role', auth, adminOnly, (req, res) => {
   const { role } = req.body;
-  if (!role || !['user', 'especialista', 'moderator', 'admin'].includes(role)) {
-    return res.status(400).json({ error: 'Papel invalido. Use: user, especialista, moderator ou admin' });
+  if (!role || !['user', 'moderator', 'admin'].includes(role)) {
+    return res.status(400).json({ error: 'Papel invalido. Use: user, moderator ou admin' });
   }
   const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(req.params.id);
   if (!target) return res.status(404).json({ error: 'Usuario nao encontrado' });
   if (target.id === req.user.id) return res.status(400).json({ error: 'Nao e possivel alterar seu proprio papel' });
+  const specialties = db.prepare('SELECT COUNT(*) as c FROM user_specialties WHERE user_id = ?').get(req.params.id).c;
+  if (role === 'user' && specialties > 0) {
+    return res.status(400).json({ error: 'Revogue as especializacoes antes de alterar este papel' });
+  }
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id);
   res.json({ ok: true, role });
 });
 
 // =================== ESPECIALISTAS ===================
 
-// Minhas especializacoes + solicitacoes
-app.get('/api/specialist/me', auth, (req, res) => {
-  const specialties = db.prepare(`
-    SELECT c.id, c.name, c.color, us.created_at FROM user_specialties us
-    JOIN categories c ON us.category_id = c.id
-    WHERE us.user_id = ? ORDER BY c.name
-  `).all(req.user.id);
-  const requests = db.prepare(`
-    SELECT sr.id, sr.category_id, sr.justification, sr.status, sr.review_note,
-           sr.created_at, sr.reviewed_at, c.name as category_name, c.color as category_color
-    FROM specialist_requests sr
-    JOIN categories c ON sr.category_id = c.id
-    WHERE sr.user_id = ? ORDER BY sr.created_at DESC
-  `).all(req.user.id);
-  res.json({ specialties, requests });
-});
+// Admin: designar especializacao diretamente
+app.post('/api/admin/users/:id/specialties/:categoryId', auth, adminOnly, (req, res) => {
+  const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Usuario nao encontrado' });
+  const category = db.prepare('SELECT id, name, color FROM categories WHERE id = ?').get(req.params.categoryId);
+  if (!category) return res.status(404).json({ error: 'Tema nao encontrado' });
 
-// Solicitar especializacao em um tema
-app.post('/api/specialist/requests', auth, (req, res) => {
-  const { category_id, justification } = req.body;
-  if (!category_id) return res.status(400).json({ error: 'Selecione um tema' });
-  const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
-  if (!cat) return res.status(404).json({ error: 'Tema nao encontrado' });
-
-  const jaEspecialista = db.prepare('SELECT id FROM user_specialties WHERE user_id = ? AND category_id = ?').get(req.user.id, category_id);
-  if (jaEspecialista) return res.status(400).json({ error: 'Voce ja e especialista neste tema' });
-
-  const pendente = db.prepare("SELECT id FROM specialist_requests WHERE user_id = ? AND category_id = ? AND status = 'pending'").get(req.user.id, category_id);
-  if (pendente) return res.status(400).json({ error: 'Ja existe uma solicitacao pendente para este tema' });
-
-  const result = db.prepare(`INSERT INTO specialist_requests (user_id, category_id, justification, status)
-                             VALUES (?, ?, ?, 'pending')`)
-    .run(req.user.id, category_id, (justification || '').trim());
-
-  // Notificar admins
-  const admins = db.prepare("SELECT id FROM users WHERE role = 'admin'").all();
-  const notif = db.prepare('INSERT INTO notifications (user_id, type, content, reference_id) VALUES (?, ?, ?, ?)');
-  for (const a of admins) {
-    notif.run(a.id, 'specialist_request', `${req.user.username} solicitou especialização`, result.lastInsertRowid);
+  const result = db.prepare(`
+    INSERT OR IGNORE INTO user_specialties (user_id, category_id, granted_by)
+    VALUES (?, ?, ?)
+  `).run(target.id, category.id, req.user.id);
+  if (result.changes === 0) {
+    return res.status(409).json({ error: 'Este usuario ja e especialista neste tema' });
   }
 
-  res.status(201).json({ ok: true, id: result.lastInsertRowid });
-});
-
-// Admin: listar solicitacoes
-app.get('/api/admin/specialist/requests', auth, adminOnly, (req, res) => {
-  const requests = db.prepare(`
-    SELECT sr.id, sr.user_id, sr.category_id, sr.justification, sr.status, sr.review_note,
-           sr.created_at, sr.reviewed_at,
-           u.username, u.organization, u.role,
-           c.name as category_name, c.color as category_color
-    FROM specialist_requests sr
-    JOIN users u ON sr.user_id = u.id
-    JOIN categories c ON sr.category_id = c.id
-    ORDER BY (sr.status = 'pending') DESC, sr.created_at DESC
-  `).all();
-  res.json(requests);
-});
-
-// Admin: aprovar ou recusar solicitacao
-app.put('/api/admin/specialist/requests/:id', auth, adminOnly, (req, res) => {
-  const { status, review_note } = req.body;
-  if (!['approved', 'rejected'].includes(status)) {
-    return res.status(400).json({ error: 'Status invalido. Use: approved ou rejected' });
-  }
-  const reqRow = db.prepare('SELECT * FROM specialist_requests WHERE id = ?').get(req.params.id);
-  if (!reqRow) return res.status(404).json({ error: 'Solicitacao nao encontrada' });
-  if (reqRow.status !== 'pending') return res.status(400).json({ error: 'Esta solicitacao ja foi analisada' });
-
-  const cat = db.prepare('SELECT name FROM categories WHERE id = ?').get(reqRow.category_id);
-
-  db.prepare(`UPDATE specialist_requests
-              SET status = ?, reviewed_by = ?, review_note = ?, reviewed_at = CURRENT_TIMESTAMP
-              WHERE id = ?`)
-    .run(status, req.user.id, (review_note || '').trim(), req.params.id);
-
-  if (status === 'approved') {
-    db.prepare('INSERT OR IGNORE INTO user_specialties (user_id, category_id, granted_by) VALUES (?, ?, ?)')
-      .run(reqRow.user_id, reqRow.category_id, req.user.id);
-    // Promove a especialista (sem rebaixar admin/moderador)
-    db.prepare("UPDATE users SET role = 'especialista' WHERE id = ? AND role = 'user'").run(reqRow.user_id);
-  }
-
+  db.prepare("UPDATE users SET role = 'especialista' WHERE id = ? AND role = 'user'").run(target.id);
   db.prepare('INSERT INTO notifications (user_id, type, content, reference_id) VALUES (?, ?, ?, ?)')
-    .run(
-      reqRow.user_id,
-      'specialist_request',
-      status === 'approved'
-        ? `Sua especialização em ${cat?.name} foi aprovada`
-        : `Sua solicitação de especialização em ${cat?.name} foi recusada`,
-      reqRow.id
-    );
+    .run(target.id, 'specialty_granted', `A administração designou você como especialista em ${category.name}`, category.id);
 
-  res.json({ ok: true, status });
+  res.status(201).json({ ok: true, specialty: category });
 });
 
 // Admin: revogar especializacao
 app.delete('/api/admin/users/:id/specialties/:categoryId', auth, adminOnly, (req, res) => {
-  db.prepare('DELETE FROM user_specialties WHERE user_id = ? AND category_id = ?').run(req.params.id, req.params.categoryId);
+  const target = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id);
+  if (!target) return res.status(404).json({ error: 'Usuario nao encontrado' });
+  const category = db.prepare('SELECT id, name FROM categories WHERE id = ?').get(req.params.categoryId);
+  if (!category) return res.status(404).json({ error: 'Tema nao encontrado' });
+  const result = db.prepare('DELETE FROM user_specialties WHERE user_id = ? AND category_id = ?').run(req.params.id, req.params.categoryId);
+  if (result.changes === 0) return res.status(404).json({ error: 'Especializacao nao encontrada' });
   const restantes = db.prepare('SELECT COUNT(*) as c FROM user_specialties WHERE user_id = ?').get(req.params.id).c;
   if (restantes === 0) {
     db.prepare("UPDATE users SET role = 'user' WHERE id = ? AND role = 'especialista'").run(req.params.id);
   }
+  db.prepare('INSERT INTO notifications (user_id, type, content, reference_id) VALUES (?, ?, ?, ?)')
+    .run(req.params.id, 'specialty_revoked', `A administração removeu sua designação de especialista em ${category.name}`, category.id);
   res.json({ ok: true });
 });
 
