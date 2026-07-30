@@ -16,6 +16,7 @@ import UserProfile from './pages/UserProfile';
 import Messages from './pages/Messages';
 import Portal from './pages/Portal';
 import Capacitacao from './pages/Capacitacao';
+import CalendarioEventos from './pages/CalendarioEventos';
 import Terms from './pages/Terms';
 import { Link } from 'react-router-dom';
 
@@ -56,6 +57,7 @@ function App() {
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:userId" element={<Messages />} />
               <Route path="/capacitacao" element={<Capacitacao />} />
+              <Route path="/capacitacao/eventos" element={<CalendarioEventos />} />
               <Route path="/termos" element={<Terms />} />
               <Route path="*" element={<NotFound />} />
               </Routes>

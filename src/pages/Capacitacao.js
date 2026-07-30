@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect, Children } from 'react';
+import { Link } from 'react-router-dom';
 import Breadcrumbs from '../components/Breadcrumbs';
+import {
+  getEventDateParts,
+  splitCapacitacaoEvents,
+} from '../data/capacitacaoEvents';
 
 const PORTAL_OFICIAL = 'https://compras.sp.gov.br/agente-publico/capacitacao/';
 
@@ -183,44 +188,6 @@ const trilhas = [
       'Ciclo de vida e economia circular',
       'Boas práticas e casos de sucesso',
     ],
-  },
-];
-
-const eventos = [
-  {
-    nome: 'II Fórum de Contratações Públicas',
-    formato: 'Presencial',
-    dia: '14', mes: 'AGO', horario: '09h00 – 17h00',
-    instituicao: 'RECPSP',
-    accent: '#FF161F',
-  },
-  {
-    nome: 'Oficina de Linguagem Simples nas Contratações Públicas',
-    formato: 'Online',
-    dia: '03', mes: 'SET', horario: '14h00 – 17h00',
-    instituicao: 'LILP',
-    accent: '#034EA2',
-  },
-  {
-    nome: 'Workshop de IA aplicada às Compras Públicas',
-    formato: 'Híbrido',
-    dia: '22', mes: 'SET', horario: '09h00 – 12h00',
-    instituicao: 'RECPSP · Prodesp',
-    accent: '#233254',
-  },
-  {
-    nome: 'Seminário de Sustentabilidade nas Contratações',
-    formato: 'Presencial',
-    dia: '08', mes: 'OUT', horario: '09h00 – 17h00',
-    instituicao: 'Secretaria de Meio Ambiente',
-    accent: '#0B9247',
-  },
-  {
-    nome: 'Encontro da Rede Estadual de Compras Públicas',
-    formato: 'Híbrido',
-    dia: '29', mes: 'OUT', horario: '09h00 – 16h00',
-    instituicao: 'RECPSP',
-    accent: '#4297D3',
   },
 ];
 
@@ -886,6 +853,7 @@ function BibliotecaDigital() {
 
 export default function Capacitacao() {
   const [selectedTrilha, setSelectedTrilha] = useState(null);
+  const { upcoming: proximosEventos } = splitCapacitacaoEvents();
 
   const scrollTo = (id) => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1121,50 +1089,70 @@ export default function Capacitacao() {
 
       {/* Próximos Eventos */}
       <section id="eventos" className="mb-16 scroll-mt-24">
-        <div className="mb-6">
-          <h2 className="font-montserrat text-2xl font-bold text-gray-900">Próximos eventos</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Fóruns, oficinas e encontros promovidos pela Rede e por instituições parceiras.
-          </p>
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <h2 className="font-montserrat text-2xl font-bold text-gray-900">Próximos eventos</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Fóruns, oficinas e encontros promovidos pela Rede e por instituições parceiras.
+            </p>
+          </div>
+          <Link
+            to="/capacitacao/eventos"
+            className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg border border-[#034EA2] px-4 py-2.5 text-sm font-semibold text-[#034EA2] transition hover:bg-[#034EA2] hover:text-white"
+          >
+            Visualizar todo o calendário
+            <Icon className="h-4 w-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </Icon>
+          </Link>
         </div>
         <div className="gov-reveal bg-white border border-gray-200 rounded-xl shadow-card p-5 sm:p-6">
-          <ul className="divide-y divide-gray-100">
-            {eventos.map((evento) => (
-              <li key={evento.nome} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
+          {proximosEventos.length > 0 ? (
+            <ul className="divide-y divide-gray-100">
+              {proximosEventos.slice(0, 5).map((evento) => {
+                const { dia, mes } = getEventDateParts(evento.data);
+                return (
+                  <li key={evento.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
                 {/* Selo de data */}
-                <div
-                  className="flex-shrink-0 w-14 flex flex-col items-center justify-center rounded-lg py-2"
-                  style={{ backgroundColor: `${evento.accent}14`, color: evento.accent }}
-                  aria-hidden="true"
-                >
-                  <span className="font-montserrat text-xl font-extrabold leading-none">{evento.dia}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider mt-0.5">{evento.mes}</span>
-                </div>
-                {/* Conteúdo */}
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-montserrat text-sm sm:text-base font-bold text-gray-900 leading-snug">{evento.nome}</h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
-                    <FormatoBadge formato={evento.formato} />
-                    <span className="text-gray-300">·</span>
-                    <span>{evento.horario}</span>
-                    <span className="hidden sm:inline text-gray-300">·</span>
-                    <span className="w-full sm:w-auto">{evento.instituicao}</span>
-                  </div>
-                </div>
-                {/* Ação */}
-                <a
-                  href={PORTAL_OFICIAL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Ver detalhes: ${evento.nome}`}
-                  className="flex-shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-gray-400 transition hover:text-[#034EA2]"
-                >
-                  <span className="hidden sm:inline">Ver detalhes</span>
-                  <Icon className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></Icon>
-                </a>
-              </li>
-            ))}
-          </ul>
+                    <div
+                      className="flex-shrink-0 w-14 flex flex-col items-center justify-center rounded-lg py-2"
+                      style={{ backgroundColor: `${evento.accent}14`, color: evento.accent }}
+                      aria-hidden="true"
+                    >
+                      <span className="font-montserrat text-xl font-extrabold leading-none">{dia}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider mt-0.5">{mes}</span>
+                    </div>
+                    {/* Conteúdo */}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-montserrat text-sm sm:text-base font-bold text-gray-900 leading-snug">{evento.nome}</h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                        <FormatoBadge formato={evento.formato} />
+                        <span className="text-gray-300">·</span>
+                        <span>{evento.horario}</span>
+                        <span className="hidden sm:inline text-gray-300">·</span>
+                        <span className="w-full sm:w-auto">{evento.instituicao}</span>
+                      </div>
+                    </div>
+                    {/* Ação */}
+                    <a
+                      href={PORTAL_OFICIAL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Ver detalhes: ${evento.nome}`}
+                      className="flex-shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-gray-400 transition hover:text-[#034EA2]"
+                    >
+                      <span className="hidden sm:inline">Ver detalhes</span>
+                      <Icon className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></Icon>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="py-6 text-center text-sm text-gray-500">
+              Não há novos eventos programados no momento.
+            </p>
+          )}
         </div>
       </section>
 

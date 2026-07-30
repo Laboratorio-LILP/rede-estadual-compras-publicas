@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ForumNoticeModal from './components/ForumNoticeModal';
 import { AuthProvider } from './context/AuthContext';
+import { splitCapacitacaoEvents } from './data/capacitacaoEvents';
 import Terms from './pages/Terms';
 
 const mockNavigate = jest.fn();
@@ -64,4 +65,13 @@ test('exige o aceite do comunicado no primeiro acesso ao fórum', async () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
   expect(JSON.parse(localStorage.getItem('forum_user')).forum_notice_accepted).toBe(true);
+});
+
+test('separa o calendário de capacitação entre eventos futuros e realizados', () => {
+  const { upcoming, past } = splitCapacitacaoEvents(new Date(2026, 6, 30, 12));
+
+  expect(upcoming).toHaveLength(5);
+  expect(upcoming[0].nome).toBe('II Fórum de Contratações Públicas');
+  expect(past).toHaveLength(5);
+  expect(past[0].nome).toBe('Jornada de Formação de Agentes de Contratação');
 });
