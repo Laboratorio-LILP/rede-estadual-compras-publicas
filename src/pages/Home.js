@@ -200,11 +200,11 @@ export default function Home() {
 
         {/* Header da tabela */}
         <div className="flex items-center py-2.5 px-4 text-xs text-gray-500 font-medium uppercase tracking-wider border-b border-gray-200 bg-gray-50">
-          <div className="flex-1">Tópico</div>
-          <div className="w-44 text-left hidden md:block mr-8">Categoria</div>
+          <div className="flex-1 text-center">Tópico</div>
+          <div className="w-44 text-center hidden md:block mr-8">Categoria</div>
           <div className="w-24 text-center font-bold text-gray-700 mr-8">Respostas</div>
           <div className="w-28 text-center hidden sm:block mr-8">Visualizações</div>
-          <div className="w-32 text-right hidden lg:block">Atividade</div>
+          <div className="w-32 text-center hidden lg:block">Atividade</div>
         </div>
 
         {/* Lista de tópicos */}
@@ -315,7 +315,7 @@ export default function Home() {
                 </div>
 
                 {/* Categoria badge */}
-                <div className="w-44 hidden md:flex justify-start mr-8">
+                <div className="w-44 hidden md:flex justify-center mr-8">
                   <CategoryBadge
                     id={topic.category_id}
                     name={topic.category_name}
@@ -334,7 +334,7 @@ export default function Home() {
                 </div>
 
                 {/* Atividade */}
-                <div className="w-32 hidden lg:flex items-center justify-end gap-1.5 text-xs text-gray-400">
+                <div className="w-32 hidden lg:flex items-center justify-center gap-1.5 text-xs text-gray-400">
                   <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
