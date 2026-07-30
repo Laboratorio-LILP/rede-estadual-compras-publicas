@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, Children } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from '../api';
 import Breadcrumbs from '../components/Breadcrumbs';
+import { useAuth } from '../context/AuthContext';
+import {
+  CAPACITACAO_COURSES,
+  calculateJourneyStats,
+} from '../data/capacitacaoCourses';
 import {
   getEventDateParts,
   splitCapacitacaoEvents,
@@ -8,55 +15,8 @@ import {
 
 const PORTAL_OFICIAL = 'https://compras.sp.gov.br/agente-publico/capacitacao/';
 
-const PROGRESSO_GERAL = 67; // demo estático
 const RING_R = 52;
 const RING_C = 2 * Math.PI * RING_R;
-const RING_OFFSET = RING_C * (1 - PROGRESSO_GERAL / 100);
-
-const jornadaStats = [
-  {
-    valor: '12',
-    label: 'Cursos concluídos',
-    color: '#034EA2',
-    icon: (
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-    ),
-  },
-  {
-    valor: '3',
-    label: 'Trilhas concluídas',
-    color: '#0B9247',
-    icon: (
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-    ),
-  },
-  {
-    valor: '48h',
-    label: 'Horas de capacitação',
-    color: '#233254',
-    icon: (
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    ),
-  },
-];
-
-const emAndamento = [
-  { titulo: 'Plano de Contratações Anual (PCA)', tema: 'Planejamento', progresso: 72, accent: '#034EA2' },
-  { titulo: 'Gestão Contratual', tema: 'Gestão de Contratos', progresso: 45, accent: '#233254' },
-];
-
-const cursos = [
-  { titulo: 'Lei nº 14.133/2021', tema: 'Legislação', carga: '40h', modalidade: 'EAD', instituicao: 'ENAP', accent: '#FF161F' },
-  { titulo: 'Plano de Contratações Anual (PCA)', tema: 'Planejamento', carga: '20h', modalidade: 'EAD', instituicao: 'Escola Virtual.Gov', accent: '#034EA2' },
-  { titulo: 'Estudo Técnico Preliminar', tema: 'Planejamento', carga: '15h', modalidade: 'EAD', instituicao: 'ENAP', accent: '#0B9247' },
-  { titulo: 'Termo de Referência', tema: 'Instrução Processual', carga: '20h', modalidade: 'EAD', instituicao: 'Escola Virtual.Gov', accent: '#233254' },
-  { titulo: 'Pesquisa de Preços', tema: 'Instrução Processual', carga: '12h', modalidade: 'EAD', instituicao: 'ENAP', accent: '#4297D3' },
-  { titulo: 'Gestão Contratual', tema: 'Gestão de Contratos', carga: '30h', modalidade: 'Híbrido', instituicao: 'TCE-SP', accent: '#94AA5A' },
-  { titulo: 'Sanções Administrativas', tema: 'Gestão de Contratos', carga: '16h', modalidade: 'EAD', instituicao: 'ENAP', accent: '#FF161F' },
-  { titulo: 'Compras Sustentáveis', tema: 'Sustentabilidade', carga: '12h', modalidade: 'EAD', instituicao: 'Escola Virtual.Gov', accent: '#0B9247' },
-  { titulo: 'Inteligência Artificial aplicada às Contratações', tema: 'Inovação', carga: '8h', modalidade: 'Online ao vivo', instituicao: 'Prodesp', accent: '#034EA2' },
-  { titulo: 'Linguagem Simples', tema: 'Comunicação', carga: '6h', modalidade: 'EAD', instituicao: 'Escola Virtual.Gov', accent: '#4297D3' },
-];
 
 const trilhas = [
   {
@@ -347,7 +307,7 @@ function Carousel({ children, itemClassName }) {
   );
 }
 
-function CourseCard({ curso, index }) {
+function CourseCard({ curso, index, onAccess }) {
   return (
     <div
       className="gov-card gov-reveal h-full bg-white border border-gray-200 flex flex-col"
@@ -388,9 +348,10 @@ function CourseCard({ curso, index }) {
       </div>
 
       <a
-        href={PORTAL_OFICIAL}
+        href={curso.url}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => onAccess(curso.id)}
         className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm font-semibold transition-colors hover:bg-gray-50"
         style={{ color: curso.accent }}
       >
@@ -852,8 +813,45 @@ function BibliotecaDigital() {
 }
 
 export default function Capacitacao() {
+  const { user, token } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedTrilha, setSelectedTrilha] = useState(null);
   const { upcoming: proximosEventos } = splitCapacitacaoEvents();
+  const { data: courseProgress = [] } = useQuery({
+    queryKey: ['course-progress'],
+    queryFn: () => apiFetch('/auth/course-progress', {}, token),
+    enabled: !!token,
+  });
+  const journey = calculateJourneyStats(courseProgress);
+  const ringOffset = RING_C * (1 - journey.percentage / 100);
+  const coursesInProgress = journey.courses.filter(curso => !curso.progress.completed);
+
+  const journeyStats = [
+    {
+      valor: journey.total,
+      label: 'Cursos na jornada',
+      color: '#034EA2',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+      ),
+    },
+    {
+      valor: journey.completed,
+      label: 'Cursos concluídos',
+      color: '#0B9247',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      ),
+    },
+    {
+      valor: `${journey.completedHours}h`,
+      label: 'Horas concluídas',
+      color: '#233254',
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      ),
+    },
+  ];
 
   const scrollTo = (id) => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -869,6 +867,14 @@ export default function Capacitacao() {
     if (trilhaId) handleSelectTrilha(trilhaId);
     else scrollTo('trilhas');
   };
+
+  async function handleCourseAccess(courseId) {
+    if (!token) return;
+    try {
+      await apiFetch(`/auth/course-progress/${courseId}`, { method: 'POST' }, token);
+      queryClient.invalidateQueries({ queryKey: ['course-progress'] });
+    } catch {}
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 pb-16">
@@ -942,18 +948,75 @@ export default function Capacitacao() {
         </div>
       </section>
 
+      {/* Guia de navegação — deixa explícito que há mais conteúdo abaixo */}
+      <nav
+        aria-label="Seções da área de Capacitação"
+        className="mb-10 rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-card"
+      >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#034EA2]">
+              <Icon className="h-5 w-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0 0l-5-5m5 5l5-5" />
+              </Icon>
+            </div>
+            <div>
+              <p className="font-montserrat text-sm font-bold text-gray-900">Continue explorando</p>
+              <p className="text-xs text-gray-500">Esta área possui cursos, trilhas, eventos e materiais mais abaixo.</p>
+            </div>
+          </div>
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-1 lg:pb-0">
+            <Link to="/capacitacao/minha-jornada" className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
+              Minha Jornada
+            </Link>
+            <button type="button" onClick={() => scrollTo('cursos')} className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
+              Cursos
+            </button>
+            <button type="button" onClick={() => scrollTo('trilhas')} className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
+              Trilhas
+            </button>
+            <Link to="/capacitacao/eventos" className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
+              Calendário
+            </Link>
+            <button type="button" onClick={() => scrollTo('materiais')} className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
+              Materiais
+            </button>
+          </div>
+        </div>
+      </nav>
+
       {/* Minha Jornada */}
-      <section className="mb-16">
+      <section id="minha-jornada" className="mb-16 scroll-mt-28">
         <div className="gov-reveal bg-white border border-gray-200 rounded-xl shadow-card p-6 sm:p-8" style={{ borderTop: '3px solid #FF161F' }}>
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#FF161F' }}>Minha Jornada</span>
-          <h2 className="sr-only">Minha Jornada</h2>
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#FF161F' }}>
+                Acompanhamento individual
+              </span>
+              <h2 className="mt-1 font-montserrat text-2xl font-bold text-gray-900">Minha Jornada</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {user
+                  ? 'Seu progresso é atualizado quando você acessa e conclui os cursos.'
+                  : 'Entre em sua conta para salvar cursos e acompanhar suas conclusões.'}
+              </p>
+            </div>
+            <Link
+              to="/capacitacao/minha-jornada"
+              className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-[#FF161F] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+            >
+              Acessar minha jornada
+              <Icon className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </Icon>
+            </Link>
+          </div>
 
           <div className="mt-5 flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
             {/* Anel de progresso */}
             <div
               className="relative w-40 h-40 flex-shrink-0 self-center md:self-auto"
               role="progressbar"
-              aria-valuenow={PROGRESSO_GERAL}
+              aria-valuenow={journey.percentage}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label="Progresso geral da capacitação"
@@ -962,18 +1025,18 @@ export default function Capacitacao() {
                 <circle cx="60" cy="60" r={RING_R} fill="none" stroke="#E8EAF0" strokeWidth="12" />
                 <circle
                   cx="60" cy="60" r={RING_R} fill="none" stroke="#FF161F" strokeWidth="12"
-                  strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={RING_OFFSET}
+                  strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={ringOffset}
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center" aria-hidden="true">
-                <span className="font-montserrat text-3xl font-extrabold text-gray-900 leading-none">{PROGRESSO_GERAL}%</span>
+                <span className="font-montserrat text-3xl font-extrabold text-gray-900 leading-none">{journey.percentage}%</span>
                 <span className="text-[11px] text-gray-500 mt-1">Progresso geral</span>
               </div>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
-              {jornadaStats.map((s) => (
+              {journeyStats.map((s) => (
                 <div key={s.label} className="bg-[#F8F9FB] border border-gray-200 rounded-lg px-4 py-4 flex items-center gap-3">
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -999,46 +1062,57 @@ export default function Capacitacao() {
             <h2 className="font-montserrat text-2xl font-bold text-gray-900">Continue aprendendo</h2>
             <p className="text-sm text-gray-500 mt-1">Retome seus cursos de onde parou.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => scrollTo('cursos')}
+          <Link
+            to="/capacitacao/minha-jornada"
             className="flex-shrink-0 inline-flex items-center gap-1 text-sm font-semibold transition hover:opacity-80"
             style={{ color: '#034EA2' }}
           >
-            Ver tudo
+            Ver minha jornada
             <Icon className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></Icon>
-          </button>
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {emAndamento.map((c, i) => (
-            <div key={c.titulo} className="gov-card gov-reveal bg-white border border-gray-200 rounded-lg p-5 flex flex-col" style={{ animationDelay: `${i * 60}ms` }}>
-              <span className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full mb-3" style={{ backgroundColor: `${c.accent}14`, color: c.accent }}>{c.tema}</span>
-              <h3 className="font-montserrat text-base font-bold text-gray-900 leading-snug mb-4">{c.titulo}</h3>
-              <div
-                role="progressbar"
-                aria-valuenow={c.progresso}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Progresso do curso ${c.titulo}: ${c.progresso}% concluído`}
-                className="h-2 w-full rounded-full bg-[#E8EAF0] overflow-hidden"
-              >
-                <div className="h-full rounded-full" style={{ width: `${c.progresso}%`, backgroundColor: '#FF161F' }} />
+        {user && coursesInProgress.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {coursesInProgress.slice(0, 2).map((curso, i) => (
+              <div key={curso.id} className="gov-card gov-reveal bg-white border border-gray-200 rounded-lg p-5 flex flex-col" style={{ animationDelay: `${i * 60}ms` }}>
+                <span className="self-start text-[11px] font-semibold px-2 py-0.5 rounded-full mb-3" style={{ backgroundColor: `${curso.accent}14`, color: curso.accent }}>
+                  {curso.tema}
+                </span>
+                <h3 className="font-montserrat text-base font-bold text-gray-900 leading-snug">{curso.titulo}</h3>
+                <p className="mt-2 text-xs text-gray-500">{curso.carga} · {curso.modalidade} · {curso.instituicao}</p>
+                <a
+                  href={curso.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 self-start inline-flex items-center gap-1.5 text-sm text-white font-semibold px-4 py-2 rounded transition hover:opacity-90"
+                  style={{ backgroundColor: curso.accent }}
+                >
+                  Continuar curso
+                  <Icon className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></Icon>
+                </a>
               </div>
-              <span className="mt-2 text-xs font-semibold text-gray-700">{c.progresso}% concluído</span>
-              <a
-                href={PORTAL_OFICIAL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 self-start inline-flex items-center gap-1.5 text-sm text-white font-semibold px-4 py-2 rounded transition hover:opacity-90"
-                style={{ backgroundColor: c.accent }}
-              >
-                Continuar
-                <Icon className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" /></Icon>
-              </a>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
+            <h3 className="font-montserrat text-base font-bold text-gray-900">
+              {user ? 'Nenhum curso em andamento' : 'Entre para acompanhar seus cursos'}
+            </h3>
+            <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500">
+              {user
+                ? 'Ao acessar um curso do catálogo, ele será incluído aqui e na sua jornada.'
+                : 'Com uma conta, os cursos que você acessar ficam salvos para acompanhamento.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => scrollTo('cursos')}
+              className="mt-4 text-sm font-semibold text-[#034EA2] transition hover:opacity-75"
+            >
+              Explorar cursos
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Cursos em destaque */}
@@ -1050,8 +1124,8 @@ export default function Capacitacao() {
           </p>
         </div>
         <Carousel itemClassName="basis-[82%] sm:basis-[calc((100%_-_1.25rem)/2)] lg:basis-[calc((100%_-_2.5rem)/3)]">
-          {cursos.map((curso, i) => (
-            <CourseCard key={curso.titulo} curso={curso} index={i} />
+          {CAPACITACAO_COURSES.map((curso, i) => (
+            <CourseCard key={curso.id} curso={curso} index={i} onAccess={handleCourseAccess} />
           ))}
         </Carousel>
       </section>

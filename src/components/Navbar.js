@@ -308,6 +308,7 @@ export default function Navbar() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const isInForum = location.pathname.startsWith('/forum') || location.pathname.startsWith('/topic') || location.pathname.startsWith('/category') || location.pathname.startsWith('/categories') || location.pathname.startsWith('/new-topic');
+  const isInCapacitacao = location.pathname.startsWith('/capacitacao');
   const isHome = location.pathname === '/';
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -412,11 +413,39 @@ export default function Navbar() {
           </Link>
 
           {/* Nav links */}
-          <div className="hidden md:flex items-center gap-5 text-sm text-gray-600 flex-shrink-0 whitespace-nowrap">
+          <div className={`${isInCapacitacao ? 'hidden lg:flex' : 'hidden md:flex'} items-center gap-5 text-sm text-gray-600 flex-shrink-0 whitespace-nowrap`}>
             {!isHome && (
               <Link to="/" className="transition hover:text-[#034EA2]">Início</Link>
             )}
-            {isInForum ? (
+            {isInCapacitacao ? (
+              <>
+                <Link
+                  to="/capacitacao"
+                  className={`transition hover:text-[#034EA2] ${
+                    location.pathname === '/capacitacao' ? 'font-semibold text-[#034EA2]' : ''
+                  }`}
+                >
+                  Capacitação
+                </Link>
+                <Link
+                  to="/capacitacao/minha-jornada"
+                  className={`transition hover:text-[#034EA2] ${
+                    location.pathname === '/capacitacao/minha-jornada' ? 'font-semibold text-[#034EA2]' : ''
+                  }`}
+                >
+                  Minha Jornada
+                </Link>
+                <Link
+                  to="/capacitacao/eventos"
+                  className={`transition hover:text-[#034EA2] ${
+                    location.pathname === '/capacitacao/eventos' ? 'font-semibold text-[#034EA2]' : ''
+                  }`}
+                >
+                  Calendário
+                </Link>
+                <Link to="/forum" className="transition hover:text-[#034EA2]">Fórum</Link>
+              </>
+            ) : isInForum ? (
               <>
                 <Link to="/forum" className="transition hover:text-[#034EA2]">Fórum</Link>
                 <Link to="/categories" className="transition hover:text-[#034EA2]">Categorias</Link>
@@ -621,6 +650,31 @@ export default function Navbar() {
           </div>
         </div>
         </nav>
+
+        {isInCapacitacao && (
+          <nav className="border-b border-gray-200 bg-white lg:hidden" aria-label="Navegação da Capacitação">
+            <div className="flex items-center gap-1 overflow-x-auto px-4 py-2 no-scrollbar">
+              {[
+                { label: 'Capacitação', to: '/capacitacao' },
+                { label: 'Minha Jornada', to: '/capacitacao/minha-jornada' },
+                { label: 'Calendário', to: '/capacitacao/eventos' },
+              ].map(item => {
+                const active = location.pathname === item.to;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      active ? 'bg-[#034EA2] text-white' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        )}
       </div>
 
       {/* Profile Settings Overlay */}

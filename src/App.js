@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ForumNoticeModal from './components/ForumNoticeModal';
+import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -17,6 +18,7 @@ import Messages from './pages/Messages';
 import Portal from './pages/Portal';
 import Capacitacao from './pages/Capacitacao';
 import CalendarioEventos from './pages/CalendarioEventos';
+import MinhaJornada from './pages/MinhaJornada';
 import Terms from './pages/Terms';
 import { Link } from 'react-router-dom';
 
@@ -39,6 +41,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <div className="min-h-screen bg-[#F8F9FB]">
             <Navbar />
             <ForumNoticeModal />
@@ -58,6 +61,7 @@ function App() {
               <Route path="/messages/:userId" element={<Messages />} />
               <Route path="/capacitacao" element={<Capacitacao />} />
               <Route path="/capacitacao/eventos" element={<CalendarioEventos />} />
+              <Route path="/capacitacao/minha-jornada" element={<MinhaJornada />} />
               <Route path="/termos" element={<Terms />} />
               <Route path="*" element={<NotFound />} />
               </Routes>

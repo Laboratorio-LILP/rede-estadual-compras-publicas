@@ -229,6 +229,19 @@ db.exec(`
   );
 `);
 
+// Progresso individual nos cursos de capacitacao
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_course_progress (
+    user_id INTEGER NOT NULL,
+    course_id TEXT NOT NULL,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, course_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
 // Tabela de recursos externos (videos, playlists)
 db.exec(`
   CREATE TABLE IF NOT EXISTS resources (
@@ -769,6 +782,100 @@ app.put('/api/auth/categories', auth, (req, res) => {
     WHERE uc.user_id = ?
   `).all(req.user.id);
   res.json(cats);
+});
+
+// Jornada individual de capacitacao
+const CAPACITACAO_COURSE_IDS = new Set([
+  'lei-14133-2021',
+  'plano-contratacoes-anual',
+  'estudo-tecnico-preliminar',
+  'termo-referencia',
+  'pesquisa-precos',
+  'gestao-contratual',
+  'sancoes-administrativas',
+  'compras-sustentaveis',
+  'ia-contratacoes',
+  'linguagem-simples',
+]);
+
+function isValidCourseId(courseId) {
+  return typeof courseId === 'string' && CAPACITACAO_COURSE_IDS.has(courseId);
+}
+
+function getCourseProgress(userId, courseId) {
+  const progress = db.prepare(`
+    SELECT course_id, started_at, completed_at, updated_at
+    FROM user_course_progress
+    WHERE user_id = ? AND course_id = ?
+  `).get(userId, courseId);
+  if (progress) progress.completed = !!progress.completed_at;
+  return progress;
+}
+
+app.get('/api/auth/course-progress', auth, (req, res) => {
+  const progress = db.prepare(`
+    SELECT course_id, started_at, completed_at, updated_at
+    FROM user_course_progress
+    WHERE user_id = ?
+    ORDER BY updated_at DESC, started_at DESC
+  `).all(req.user.id);
+  progress.forEach(item => {
+    item.completed = !!item.completed_at;
+  });
+  res.json(progress);
+});
+
+app.post('/api/auth/course-progress/:courseId', auth, (req, res) => {
+  const { courseId } = req.params;
+  if (!isValidCourseId(courseId)) return res.status(400).json({ error: 'Curso inválido' });
+
+  db.prepare(`
+    INSERT INTO user_course_progress (user_id, course_id)
+    VALUES (?, ?)
+    ON CONFLICT(user_id, course_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+  `).run(req.user.id, courseId);
+
+  res.status(201).json(getCourseProgress(req.user.id, courseId));
+});
+
+app.put('/api/auth/course-progress/:courseId', auth, (req, res) => {
+  const { courseId } = req.params;
+  const { completed } = req.body;
+  if (!isValidCourseId(courseId)) return res.status(400).json({ error: 'Curso inválido' });
+  if (typeof completed !== 'boolean') {
+    return res.status(400).json({ error: 'O campo completed deve ser verdadeiro ou falso' });
+  }
+
+  const updateProgress = db.transaction(() => {
+    db.prepare(`
+      INSERT OR IGNORE INTO user_course_progress (user_id, course_id)
+      VALUES (?, ?)
+    `).run(req.user.id, courseId);
+    db.prepare(`
+      UPDATE user_course_progress
+      SET completed_at = CASE
+        WHEN ? = 1 THEN COALESCE(completed_at, CURRENT_TIMESTAMP)
+        ELSE NULL
+      END,
+      updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = ? AND course_id = ?
+    `).run(completed ? 1 : 0, req.user.id, courseId);
+  });
+  updateProgress();
+
+  res.json(getCourseProgress(req.user.id, courseId));
+});
+
+app.delete('/api/auth/course-progress/:courseId', auth, (req, res) => {
+  const { courseId } = req.params;
+  if (!isValidCourseId(courseId)) return res.status(400).json({ error: 'Curso inválido' });
+
+  const result = db.prepare(`
+    DELETE FROM user_course_progress WHERE user_id = ? AND course_id = ?
+  `).run(req.user.id, courseId);
+  if (result.changes === 0) return res.status(404).json({ error: 'Curso não encontrado na jornada' });
+
+  res.json({ ok: true });
 });
 
 // =================== PERFIL PUBLICO ===================

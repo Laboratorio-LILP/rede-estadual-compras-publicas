@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ForumNoticeModal from './components/ForumNoticeModal';
+import ScrollToTop from './components/ScrollToTop';
 import { AuthProvider } from './context/AuthContext';
 import { splitCapacitacaoEvents } from './data/capacitacaoEvents';
+import { calculateJourneyStats } from './data/capacitacaoCourses';
 import Terms from './pages/Terms';
 
 const mockNavigate = jest.fn();
@@ -74,4 +76,25 @@ test('separa o calendário de capacitação entre eventos futuros e realizados',
   expect(upcoming[0].nome).toBe('II Fórum de Contratações Públicas');
   expect(past).toHaveLength(5);
   expect(past[0].nome).toBe('Jornada de Formação de Agentes de Contratação');
+});
+
+test('abre uma nova página no topo', () => {
+  const scrollTo = jest.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  mockPathname = '/capacitacao/eventos';
+
+  render(<ScrollToTop />);
+
+  expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
+});
+
+test('calcula o progresso real da Minha Jornada', () => {
+  const stats = calculateJourneyStats([
+    { course_id: 'lei-14133-2021', completed: true },
+    { course_id: 'linguagem-simples', completed: false },
+  ]);
+
+  expect(stats.total).toBe(2);
+  expect(stats.completed).toBe(1);
+  expect(stats.completedHours).toBe(40);
+  expect(stats.percentage).toBe(50);
 });
