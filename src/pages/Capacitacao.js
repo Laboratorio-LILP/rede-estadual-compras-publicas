@@ -12,6 +12,7 @@ import {
   getEventDateParts,
   splitCapacitacaoEvents,
 } from '../data/capacitacaoEvents';
+import { MINHA_JORNADA_ENABLED } from '../config/features';
 
 const PORTAL_OFICIAL = 'https://compras.sp.gov.br/agente-publico/capacitacao/';
 
@@ -820,7 +821,7 @@ export default function Capacitacao() {
   const { data: courseProgress = [] } = useQuery({
     queryKey: ['course-progress'],
     queryFn: () => apiFetch('/auth/course-progress', {}, token),
-    enabled: !!token,
+    enabled: MINHA_JORNADA_ENABLED && !!token,
   });
   const journey = calculateJourneyStats(courseProgress);
   const ringOffset = RING_C * (1 - journey.percentage / 100);
@@ -869,7 +870,7 @@ export default function Capacitacao() {
   };
 
   async function handleCourseAccess(courseId) {
-    if (!token) return;
+    if (!MINHA_JORNADA_ENABLED || !token) return;
     try {
       await apiFetch(`/auth/course-progress/${courseId}`, { method: 'POST' }, token);
       queryClient.invalidateQueries({ queryKey: ['course-progress'] });
@@ -966,9 +967,11 @@ export default function Capacitacao() {
             </div>
           </div>
           <div className="flex max-w-full gap-2 overflow-x-auto pb-1 lg:pb-0">
-            <Link to="/capacitacao/minha-jornada" className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
-              Minha Jornada
-            </Link>
+            {MINHA_JORNADA_ENABLED && (
+              <Link to="/capacitacao/minha-jornada" className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
+                Minha Jornada
+              </Link>
+            )}
             <button type="button" onClick={() => scrollTo('cursos')} className="whitespace-nowrap rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-blue-50 hover:text-[#034EA2]">
               Cursos
             </button>
@@ -985,8 +988,10 @@ export default function Capacitacao() {
         </div>
       </nav>
 
-      {/* Minha Jornada */}
-      <section id="minha-jornada" className="mb-16 scroll-mt-28">
+      {MINHA_JORNADA_ENABLED && (
+        <>
+          {/* Minha Jornada */}
+          <section id="minha-jornada" className="mb-16 scroll-mt-28">
         <div className="gov-reveal bg-white border border-gray-200 rounded-xl shadow-card p-6 sm:p-8" style={{ borderTop: '3px solid #FF161F' }}>
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <div>
@@ -1053,10 +1058,10 @@ export default function Capacitacao() {
             </div>
           </div>
         </div>
-      </section>
+          </section>
 
-      {/* Continue Aprendendo */}
-      <section className="mb-16">
+          {/* Continue Aprendendo */}
+          <section className="mb-16">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h2 className="font-montserrat text-2xl font-bold text-gray-900">Continue aprendendo</h2>
@@ -1113,7 +1118,9 @@ export default function Capacitacao() {
             </button>
           </div>
         )}
-      </section>
+          </section>
+        </>
+      )}
 
       {/* Cursos em destaque */}
       <section id="cursos" className="mb-16 scroll-mt-24">

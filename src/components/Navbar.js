@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useState, useRef, useEffect } from 'react';
 import { apiFetch } from '../api';
 import { timeAgo } from '../utils/formatters';
+import { MINHA_JORNADA_ENABLED } from '../config/features';
 
 const ESTADOS_BR = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
@@ -427,14 +428,16 @@ export default function Navbar() {
                 >
                   Capacitação
                 </Link>
-                <Link
-                  to="/capacitacao/minha-jornada"
-                  className={`transition hover:text-[#034EA2] ${
-                    location.pathname === '/capacitacao/minha-jornada' ? 'font-semibold text-[#034EA2]' : ''
-                  }`}
-                >
-                  Minha Jornada
-                </Link>
+                {MINHA_JORNADA_ENABLED && (
+                  <Link
+                    to="/capacitacao/minha-jornada"
+                    className={`transition hover:text-[#034EA2] ${
+                      location.pathname === '/capacitacao/minha-jornada' ? 'font-semibold text-[#034EA2]' : ''
+                    }`}
+                  >
+                    Minha Jornada
+                  </Link>
+                )}
                 <Link
                   to="/capacitacao/eventos"
                   className={`transition hover:text-[#034EA2] ${
@@ -656,7 +659,9 @@ export default function Navbar() {
             <div className="flex items-center gap-1 overflow-x-auto px-4 py-2 no-scrollbar">
               {[
                 { label: 'Capacitação', to: '/capacitacao' },
-                { label: 'Minha Jornada', to: '/capacitacao/minha-jornada' },
+                ...(MINHA_JORNADA_ENABLED
+                  ? [{ label: 'Minha Jornada', to: '/capacitacao/minha-jornada' }]
+                  : []),
                 { label: 'Calendário', to: '/capacitacao/eventos' },
               ].map(item => {
                 const active = location.pathname === item.to;

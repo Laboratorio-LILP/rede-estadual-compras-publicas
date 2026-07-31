@@ -20,6 +20,7 @@ import Capacitacao from './pages/Capacitacao';
 import CalendarioEventos from './pages/CalendarioEventos';
 import MinhaJornada from './pages/MinhaJornada';
 import Terms from './pages/Terms';
+import { MINHA_JORNADA_ENABLED } from './config/features';
 import { Link } from 'react-router-dom';
 
 function NotFound() {
@@ -61,7 +62,9 @@ function App() {
               <Route path="/messages/:userId" element={<Messages />} />
               <Route path="/capacitacao" element={<Capacitacao />} />
               <Route path="/capacitacao/eventos" element={<CalendarioEventos />} />
-              <Route path="/capacitacao/minha-jornada" element={<MinhaJornada />} />
+              {MINHA_JORNADA_ENABLED && (
+                <Route path="/capacitacao/minha-jornada" element={<MinhaJornada />} />
+              )}
               <Route path="/termos" element={<Terms />} />
               <Route path="*" element={<NotFound />} />
               </Routes>
