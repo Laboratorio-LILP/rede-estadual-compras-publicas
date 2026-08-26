@@ -505,7 +505,9 @@ async function importDefaultPlaylists() {
   console.log(`[playlists] ${total} vídeos importados de ${defaultPlaylists.length} playlists`);
 }
 
-importDefaultPlaylists();
+// Num banco vazio a importação dispara chamadas de rede ao YouTube no boot;
+// SKIP_PLAYLIST_IMPORT=1 permite pular (testes usam banco vazio por execução).
+if (process.env.SKIP_PLAYLIST_IMPORT !== '1') importDefaultPlaylists();
 
 // =================== CURSOS DE CAPACITAÇÃO (seed fixo) ===================
 const cursos = [
@@ -1244,12 +1246,23 @@ app.delete('/api/topics/:id', auth, (req, res) => {
   const topic = db.prepare('SELECT user_id FROM topics WHERE id = ?').get(req.params.id);
   if (!topic) return res.status(404).json({ error: 'Topico nao encontrado' });
   if (topic.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissao' });
-  db.prepare('DELETE FROM poll_votes WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM poll_options WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM topic_tags WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM likes WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM posts WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM topics WHERE id = ?').run(req.params.id);
+  // FKs sem ON DELETE + foreign_keys = ON: as curtidas e descurtidas das
+  // respostas precisam sair antes dos posts, e tudo dentro de transação para
+  // a exclusão ser atômica (mesmo padrão de DELETE /api/admin/users/:id).
+  const deleteTopic = db.transaction(() => {
+    const posts = db.prepare('SELECT id FROM posts WHERE topic_id = ?').all(req.params.id);
+    for (const p of posts) {
+      db.prepare('DELETE FROM post_likes WHERE post_id = ?').run(p.id);
+      db.prepare('DELETE FROM post_dislikes WHERE post_id = ?').run(p.id);
+    }
+    db.prepare('DELETE FROM poll_votes WHERE topic_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM poll_options WHERE topic_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM topic_tags WHERE topic_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM likes WHERE topic_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM posts WHERE topic_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM topics WHERE id = ?').run(req.params.id);
+  });
+  deleteTopic();
   res.json({ ok: true });
 });
 
@@ -1460,7 +1473,14 @@ app.delete('/api/posts/:id', auth, (req, res) => {
   const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post nao encontrado' });
   if (post.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissao' });
-  db.prepare('DELETE FROM posts WHERE id = ?').run(req.params.id);
+  // Curtidas e descurtidas referenciam o post (FK sem ON DELETE) — limpar
+  // antes, em transação.
+  const deletePost = db.transaction(() => {
+    db.prepare('DELETE FROM post_likes WHERE post_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM post_dislikes WHERE post_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM posts WHERE id = ?').run(req.params.id);
+  });
+  deletePost();
   res.json({ ok: true });
 });
 
@@ -1905,7 +1925,13 @@ app.get('{*path}', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`\nServidor rodando na porta ${PORT}`);
-  console.log('Forum RECPSP API pronta!\n');
-});
+// Sob require (testes), exporta o app sem ocupar porta; executado diretamente
+// (npm start / npm run server), sobe o servidor como sempre.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`\nServidor rodando na porta ${PORT}`);
+    console.log('Forum RECPSP API pronta!\n');
+  });
+}
+
+module.exports = app;
