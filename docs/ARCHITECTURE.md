@@ -144,7 +144,7 @@ JWT no header `Authorization: Bearer <token>`, validade de 7 dias, assinado com
 | Guarda | Comportamento |
 |---|---|
 | `auth` | exige token válido; recarrega o usuário do banco a cada requisição; 403 se banido |
-| `optionalAuth` | popula `req.user` se houver token; segue adiante sem ele |
+| `optionalAuth` | popula `req.user` se houver token válido de conta **não banida**; segue adiante sem ele. Conta banida é rebaixada a visitante, não recebe 403 — a navegação pública continua funcionando |
 | `adminOnly` | exige `role === 'admin'`; usar **sempre depois** de `auth` |
 
 O papel é relido do banco a cada requisição (`authUserByIdStmt`), não do token —
@@ -325,7 +325,7 @@ Estas não são "melhorias futuras": elas mudam como o código deve ser escrito 
 | SQLite mono-instância | impede rodar duas réplicas; decisão sobre Postgres pendente (ADR a escrever) |
 | `style-src` ainda aceita `'unsafe-inline'` | o atributo `style` do React exige; `script-src` já é `'self'` |
 | Fonte Montserrat vem do Google | cada visitante do fórum faz requisição a `fonts.googleapis.com`; hospedar localmente é o passo seguinte |
-| Testes cobrem o crítico, não o todo | 5 de front + 24 de API (seção 12); mensagens, notificações, votação, busca e recursos seguem sem cobertura |
+| Testes cobrem o crítico, não o todo | 5 de front + 39 de API (seção 12); mensagens, notificações, votação, busca e recursos seguem sem cobertura |
 
 ## 12. Laço de verificação
 
@@ -350,7 +350,7 @@ make test        # front (react-scripts) + API (node:test)
 - **Orçamento de autenticação:** o limitador permite 20 tentativas por IP a
   cada 15 minutos e vale nos testes; `server/test/helpers.js` faz cache de
   token por e-mail. Arquivo de teste novo deve economizar logins.
-- **Cobertura (24 testes em `server/test/`):** autenticação (aceite de termos,
+- **Cobertura (39 testes em `server/test/`):** autenticação (aceite de termos,
   banimento, papel relido a cada requisição), visibilidade/moderação nos quatro
   pontos onde a regra está repetida (seção 6), exclusão em cascata e política de
   anonimização (seção 7) e autorização admin × moderador × usuário.

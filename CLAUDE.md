@@ -125,6 +125,11 @@ Correções verificadas contra o servidor real. Quem for mexer no código precis
 - **A chave do YouTube viaja no cabeçalho `X-goog-api-key`**, nunca na query string, e nenhuma mensagem crua do Google chega ao cliente. Sem a chave, a importação fica desligada e responde 503.
 - **`trust proxy` é configurável (`TRUST_PROXY`, padrão `loopback`).** Sem isso, atrás de proxy o rate limit de login conta todos os usuários como um IP só.
 - **`PUT /api/auth/profile` valida como o cadastro.** Antes aceitava e-mail sem formato válido e descartava senha curta em silêncio, respondendo 200.
+- **A identidade da conta sentinela é reservada nas duas rotas que gravam `users.email`/`users.username`** — cadastro e edição de perfil, via `identidadeReservada`. Rota nova que grave esses campos precisa chamá-la, senão abre o caminho para alguém assinar o conteúdo de todas as contas removidas.
+- **`optionalAuth` rebaixa conta banida a visitante.** Antes copiava o papel sem checar `banned`, e um moderador banido continuava enxergando tópicos pendentes nas listagens públicas.
+- **`res.sendFile` usa `root`, não caminho absoluto.** Com caminho absoluto o módulo `send` aplica a política de dotfiles a *todos* os segmentos: um diretório oculto no caminho de instalação faz todo deep link do SPA virar 404.
+- **`image_url` e `video_url` só aceitam `http(s)`.** O front joga esses valores num `<img src>` e num iframe.
+- **O cache de visualizações tem teto duro e id validado.** A "limpeza a cada 1000 registros" não impunha limite nenhum e varria o Map inteiro a cada requisição — custo quadrático no processo que também serve o SPA.
 
 ## Flags de funcionalidade
 

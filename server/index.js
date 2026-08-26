@@ -55,12 +55,12 @@ db.function('normalize_text', (text) => {
   return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 });
 
-// Limites de entrada, num lugar so. Antes o cadastro validava e-mail e senha
-// mas a edicao de perfil nao validava nada — as duas rotas gravam a mesma
-// tabela e agora respondem as mesmas regras.
+// Limites de entrada, num lugar so. Cadastro e edicao de perfil gravam a mesma
+// tabela: quem validar menos vira a porta de entrada.
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 6;
 const MAX_USERNAME = 60;
+const MAX_EMAIL = 254; // limite de endereco do RFC 5321
 const MAX_LOCATION = 120;
 const MAX_ORGANIZATION = 160;
 const MAX_BIO = 1000;
@@ -68,6 +68,23 @@ const MAX_TITLE = 200;
 const MAX_CONTENT = 50000;
 const MAX_QUESTION = 100;
 const MAX_MESSAGE = 5000;
+
+// Regras dos campos livres de perfil, compartilhadas pelas duas rotas.
+// Devolve a mensagem de erro, ou null quando esta tudo certo.
+// Sao os campos que aparecem no perfil publico (GET /api/users/:id) — sem teto,
+// o cadastro aceitava texto de qualquer tamanho em organization e location.
+function validarCamposLivres({ location, organization, bio }) {
+  for (const [campo, valor, limite] of [
+    ['Localidade', location, MAX_LOCATION],
+    ['Organização', organization, MAX_ORGANIZATION],
+    ['Bio', bio, MAX_BIO],
+  ]) {
+    if (valor === undefined || valor === null) continue;
+    if (typeof valor !== 'string') return `${campo} deve ser texto`;
+    if (valor.length > limite) return `${campo} deve ter no máximo ${limite} caracteres`;
+  }
+  return null;
+}
 
 // =================== EXCLUSAO EM CASCATA ===================
 // O schema declara as FK sem ON DELETE CASCADE, e o boot liga
@@ -124,10 +141,20 @@ const NOME_USUARIO_REMOVIDO = 'Usuário removido';
 // sentinela (antes dela existir, o UNIQUE nao protege) para, na primeira
 // exclusao de conta, passar a assinar o conteudo de todos os removidos.
 function identidadeReservada(email, username) {
-  if (email !== undefined && email !== null
-      && String(email).trim().toLowerCase() === EMAIL_USUARIO_REMOVIDO) return true;
+  // NFKC + remocao de invisiveis antes de comparar: sem normalizar, o mesmo
+  // nome escrito em NFD, com espaco sem quebra ou com caractere de largura
+  // zero passava pela guarda. Nao e desvio da protecao real (essa corre pelo
+  // e-mail, comparado por igualdade exata), mas evita um sosia visual da
+  // sentinela assinando conteudo no forum.
+  const normalizar = (v) => String(v)
+    .normalize('NFKC')
+    .replace(/[\u00ad\u200b-\u200f\u2060\ufeff]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  if (email !== undefined && email !== null && normalizar(email) === EMAIL_USUARIO_REMOVIDO) return true;
   if (username !== undefined && username !== null
-      && String(username).trim().toLowerCase() === NOME_USUARIO_REMOVIDO.toLowerCase()) return true;
+      && normalizar(username) === normalizar(NOME_USUARIO_REMOVIDO)) return true;
   return false;
 }
 
@@ -936,12 +963,17 @@ function optionalAuth(req, res, next) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       const authUser = authUserByIdStmt.get(decoded.id);
-      if (authUser) {
+      // Conta banida e rebaixada a visitante, nao promovida. Antes o papel era
+      // copiado sem checar `banned`, entao um moderador banido continuava
+      // enxergando topicos pendentes e rejeitados nas tres rotas que usam
+      // optionalAuth. Rebaixar (em vez de 403 como faz `auth`) mantem a
+      // navegacao publica do forum funcionando.
+      if (authUser && !authUser.banned) {
         req.user = {
           id: authUser.id,
           username: authUser.username,
           role: authUser.role,
-          banned: !!authUser.banned,
+          banned: false,
         };
       }
     } catch {}
@@ -962,10 +994,14 @@ app.post('/api/auth/register', authLimiter, (req, res) => {
   if (typeof username !== 'string' || username.trim().length > MAX_USERNAME) {
     return res.status(400).json({ error: `Nome de usuário deve ter no máximo ${MAX_USERNAME} caracteres` });
   }
-  if (!EMAIL_REGEX.test(String(email))) return res.status(400).json({ error: 'Email inválido' });
+  if (typeof email !== 'string' || email.length > MAX_EMAIL || !EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
   if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
     return res.status(400).json({ error: `Senha deve ter pelo menos ${MIN_PASSWORD} caracteres` });
   }
+  const erroCampos = validarCamposLivres({ location, organization });
+  if (erroCampos) return res.status(400).json({ error: erroCampos });
   if (!accept_terms) return res.status(400).json({ error: 'É necessário aceitar os Termos de Uso para criar uma conta' });
   if (identidadeReservada(email, username)) {
     return res.status(400).json({ error: 'Nome de usuario ou email ja em uso' });
@@ -999,6 +1035,15 @@ app.post('/api/auth/register', authLimiter, (req, res) => {
 
 app.post('/api/auth/login', authLimiter, (req, res) => {
   const { email, password } = req.body;
+  // Guarda de tipo ANTES de tocar o banco. Sem ela o login virava oraculo de
+  // enumeracao: e-mail inexistente devolvia 401 (mensagem neutra), mas e-mail
+  // existente com senha nao-string fazia o bcryptjs lancar "Illegal arguments"
+  // e a resposta virava 500 — a diferenca de status entregava quais contas
+  // existem, exatamente o que a mensagem neutra tenta esconder. E-mail
+  // nao-string tambem fazia o better-sqlite3 lancar.
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(401).json({ error: 'Email ou senha invalidos' });
+  }
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user || !bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Email ou senha invalidos' });
   if (user.banned) return res.status(403).json({ error: 'Sua conta foi banida' });
@@ -1062,7 +1107,7 @@ app.put('/api/auth/profile', auth, (req, res) => {
       return res.status(400).json({ error: `Nome de usuário deve ter no máximo ${MAX_USERNAME} caracteres` });
     }
   }
-  if (email !== undefined && !EMAIL_REGEX.test(String(email))) {
+  if (email !== undefined && (typeof email !== 'string' || email.length > MAX_EMAIL || !EMAIL_REGEX.test(email))) {
     return res.status(400).json({ error: 'Email inválido' });
   }
   // Mesma reserva do cadastro: sem isto, editar o perfil era o caminho aberto
@@ -1075,15 +1120,8 @@ app.put('/api/auth/profile', auth, (req, res) => {
       return res.status(400).json({ error: `Senha deve ter pelo menos ${MIN_PASSWORD} caracteres` });
     }
   }
-  for (const [campo, valor, limite] of [
-    ['Localidade', location, MAX_LOCATION],
-    ['Organização', organization, MAX_ORGANIZATION],
-    ['Bio', bio, MAX_BIO],
-  ]) {
-    if (valor !== undefined && String(valor).length > limite) {
-      return res.status(400).json({ error: `${campo} deve ter no máximo ${limite} caracteres` });
-    }
-  }
+  const erroCampos = validarCamposLivres({ location, organization, bio });
+  if (erroCampos) return res.status(400).json({ error: erroCampos });
 
   try {
     // Uma transacao: ou o perfil inteiro muda, ou nada muda. Antes cada campo
@@ -1562,6 +1600,17 @@ app.post('/api/topics', auth, (req, res) => {
     return res.status(400).json({ error: 'Votacao precisa de pelo menos 2 alternativas' });
   }
 
+  // O front renderiza image_url direto num <img src> e video_url num iframe.
+  // O esquema precisa ser validado aqui: o servidor gravava qualquer string, e
+  // "data:" ou "javascript:" chegavam ao DOM do navegador de quem lesse.
+  for (const [campo, valor] of [['Imagem', image_url], ['Vídeo', video_url]]) {
+    if (valor === undefined || valor === null || valor === '') continue;
+    if (typeof valor !== 'string') return res.status(400).json({ error: `${campo}: URL inválida` });
+    if (valor.trim() && !/^https?:\/\//i.test(valor.trim())) {
+      return res.status(400).json({ error: `${campo}: use um endereço http:// ou https://` });
+    }
+  }
+
   // Determinar status: topicos com imagem ou video de usuarios comuns ficam pendentes
   const hasMedia = (image_url && image_url.trim()) || (video_url && video_url.trim());
   const isAdminOrMod = req.user.role === 'admin' || req.user.role === 'moderator';
@@ -1673,19 +1722,40 @@ app.post('/api/topics/:id/vote', auth, (req, res) => {
 
 // =================== VIEWS ===================
 
+// Rota publica, sem autenticacao e sem rate limit — o que faz do cache um
+// alvo. Duas guardas que faltavam:
+//
+// 1. O `:id` nao era validado. Como a chave do Map e `ip:id`, qualquer string
+//    de URL virava uma chave nova, e o espaco de chaves era ilimitado.
+// 2. A "limpeza a cada 1000 registros" nao impunha teto nenhum: ela so remove
+//    entradas com mais de 30 min, entao sob trafego continuo nada envelhecia e
+//    o Map crescia sem limite. Pior, passados os 1000 registros a varredura
+//    percorria o Map INTEIRO a cada requisicao — custo quadratico, com o event
+//    loop do unico processo que serve API e SPA preso varrendo.
+//
+// Agora o id e inteiro (espaco de chaves = topicos existentes) e o teto e
+// duro, com descarte O(1) da entrada mais antiga (Map preserva ordem de
+// insercao). Nenhuma varredura no caminho da requisicao.
+const JANELA_VIEW_MS = 30 * 60 * 1000;
+const MAX_VIEWS_EM_CACHE = 20000;
 const viewedTopics = new Map(); // Map<"ip:topicId", timestamp>
+
 app.post('/api/topics/:id/view', (req, res) => {
-  const key = `${req.ip}:${req.params.id}`;
+  const topicId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(topicId)) return res.status(400).json({ error: 'Topico invalido' });
+
+  const key = `${req.ip}:${topicId}`;
   const now = Date.now();
   const lastView = viewedTopics.get(key);
   // Só conta view a cada 30 minutos por IP/tópico
-  if (!lastView || (now - lastView) > 30 * 60 * 1000) {
-    db.prepare('UPDATE topics SET views = views + 1 WHERE id = ?').run(req.params.id);
+  if (!lastView || (now - lastView) > JANELA_VIEW_MS) {
+    db.prepare('UPDATE topics SET views = views + 1 WHERE id = ?').run(topicId);
+    // delete antes do set: reinsere no fim da ordem de insercao, para a
+    // entrada recem-usada nao ser a proxima descartada.
+    viewedTopics.delete(key);
     viewedTopics.set(key, now);
-    // Limpar entradas antigas a cada 1000 registros
-    if (viewedTopics.size > 1000) {
-      const cutoff = now - 30 * 60 * 1000;
-      for (const [k, v] of viewedTopics) { if (v < cutoff) viewedTopics.delete(k); }
+    while (viewedTopics.size > MAX_VIEWS_EM_CACHE) {
+      viewedTopics.delete(viewedTopics.keys().next().value);
     }
   }
   res.json({ ok: true });
@@ -1835,10 +1905,24 @@ app.post('/api/posts', auth, (req, res) => {
 
 app.put('/api/posts/:id', auth, (req, res) => {
   const { content } = req.body;
-  if (!content || !content.trim()) return res.status(400).json({ error: 'Conteúdo não pode ser vazio' });
-  const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(req.params.id);
+  if (typeof content !== 'string' || !content.trim()) return res.status(400).json({ error: 'Conteúdo não pode ser vazio' });
+  // Mesmo teto da criacao. Sem ele o limite era so cosmetico: bastava criar um
+  // post pequeno e edita-lo depois, com o `express.json({ limit: '5mb' })`
+  // virando o unico teto real.
+  if (content.length > MAX_CONTENT) return res.status(400).json({ error: 'Conteúdo muito longo' });
+
+  const post = db.prepare('SELECT user_id, topic_id FROM posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post nao encontrado' });
   if (post.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissao' });
+
+  // Travar um topico precisa valer para a edicao tambem: sem isto o autor
+  // continuava reescrevendo o texto ja publicado, e a moderacao nao segurava
+  // nada — so impedia respostas novas.
+  const topic = db.prepare('SELECT locked FROM topics WHERE id = ?').get(post.topic_id);
+  if (topic?.locked && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Este topico esta bloqueado' });
+  }
+
   db.prepare('UPDATE posts SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(content.trim(), req.params.id);
   res.json({ ok: true });
 });
@@ -2238,7 +2322,12 @@ app.use('/api', (req, res) => {
 app.use(express.static(buildPath));
 
 app.get('{*path}', (req, res, next) => {
-  res.sendFile(path.join(buildPath, 'index.html'), (err) => {
+  // `root` e obrigatorio aqui. Com caminho absoluto, o modulo `send` trata a
+  // string inteira como caminho de requisicao e aplica a politica de dotfiles
+  // ('ignore' => 404) a TODOS os segmentos — inclusive aos do caminho de
+  // instalacao. Basta um diretorio oculto na arvore (worktree do git, cache de
+  // CI, checkout dentro de ~/.algo) para todo deep link do SPA virar 404.
+  res.sendFile('index.html', { root: buildPath }, (err) => {
     if (err) next(err);
   });
 });

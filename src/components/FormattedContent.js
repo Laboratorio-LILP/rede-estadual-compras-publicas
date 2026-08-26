@@ -19,8 +19,23 @@ const ESQUEMAS_PERMITIDOS = ['http:', 'https:', 'mailto:'];
 
 export function sanitizeUrl(rawUrl) {
   const url = String(rawUrl).trim();
-  // Link relativo ou ancora nao carrega esquema: nao ha o que executar.
-  if (/^[/#?]/.test(url)) return url;
+
+  // Nenhuma URL legitima tem aspas, sinal de menor/maior ou caractere de
+  // controle. Quando aparecem aqui e porque a substituicao de code span rodou
+  // antes e injetou markup dentro do que virou a URL — o href sairia truncado,
+  // com atributos-lixo. Recusar mantem o texto visivel e o atributo intacto.
+  if (/["'<>`]/.test(url)) return null;
+  // Controle e espaco: testados por codigo, para nao deixar byte invisivel
+  // no fonte (um NUL literal aqui e apagado silenciosamente por varios
+  // editores, e o guard sumiria sem ninguem notar).
+  for (const c of url) {
+    const cp = c.codePointAt(0);
+    if (cp <= 0x20 || cp === 0x7f) return null;
+  }
+
+  // Link relativo ou ancora nao carrega esquema. `//host` e a excecao: parece
+  // relativo mas e URL de protocolo relativo, e precisa passar pela allowlist.
+  if (/^[/#?]/.test(url) && !/^\/[/\\]/.test(url)) return url;
   try {
     // Base fixa so para resolver o esquema; nao usamos o resultado resolvido.
     const parsed = new URL(url, 'https://recpsp.invalid');
