@@ -75,7 +75,7 @@ npm start                 # sobe tudo na porta 3001
 | `make setup` | 1ª vez: valida o `.env`, constrói a imagem e sobe. |
 | `make up` / `make down` | Sobe / derruba o container. O banco fica no volume. |
 | `make logs` / `make ps` / `make shell` | Logs, estado do stack, shell no container. |
-| `make test` | Roda os testes no host (requer Node 18+). |
+| `make test` | Roda os testes do front e da API no host (requer Node 18+). |
 | `make clean` | Derruba e **apaga o volume** — o banco do fórum é perdido. |
 
 ### npm (dev sem Docker)
@@ -86,7 +86,9 @@ npm start                 # sobe tudo na porta 3001
 | `npm run server` | Sobe a API em `localhost:3001`. |
 | `npm start` | Sobe a API e serve o `build/`. **Não sobe o React.** |
 | `npm run build` | Gera o `build/` de produção. |
-| `npm test` | Roda os testes. |
+| `npm test` | Roda os testes do front. |
+| `npm run test:api` | Roda os testes de API (banco temporário, não toca `server/forum.db`). |
+| `npm run lint` | ESLint em `src/` e `server/`. |
 
 ---
 
@@ -100,9 +102,11 @@ pelo nome de usuário:
 | `admin@forum.com` | `admin123` | Administrador |
 | `maria@teste.com`, `joao@teste.com`, `ana@teste.com`, `carlos@teste.com`, `fernanda@teste.com` | `teste123` | Usuário comum |
 
-> **Atenção.** Essas credenciais servem apenas para desenvolvimento local. Troque a senha do
-> administrador e remova os usuários de exemplo antes de qualquer publicação, inclusive em
-> homologação.
+> **Essa tabela só vale fora de produção.** Com `NODE_ENV=production` o comportamento muda
+> por construção: o admin nasce com a senha de `ADMIN_PASSWORD` ou, sem ela, com uma senha
+> sorteada que aparece **uma única vez** no log do boot (`make logs`) — anote na hora. Os
+> cinco usuários de exemplo não são criados; para semeá-los deliberadamente, use
+> `SEED_DEMO_DATA=1`.
 
 ---
 
@@ -118,7 +122,8 @@ pelo nome de usuário:
 | Banco | SQLite (`better-sqlite3`) |
 | Autenticação | JWT (`jsonwebtoken`) + `bcryptjs` |
 | Segurança HTTP | `helmet`, `cors`, `express-rate-limit` |
-| Testes | Jest + Testing Library |
+| Testes | Jest + Testing Library (front) · `node:test` (API) |
+| CI | GitHub Actions — lint, testes e build em PR e na `main` |
 | Empacotamento | Docker Compose (`lilp-recpsp`) + Makefile |
 
 ---
@@ -128,7 +133,8 @@ pelo nome de usuário:
 ```
 rede-estadual-compras-publicas/
 ├── server/
-│   └── index.js          # API + schema + seed + entrega do build (arquivo único)
+│   ├── index.js          # API + schema + seed + entrega do build (arquivo único)
+│   └── test/             # testes de API (node:test) — banco temporário por execução
 ├── src/
 │   ├── pages/            # Home, Portal, Categories, Topic, NewTopic, Capacitacao,
 │   │                     # CalendarioEventos, MinhaJornada, Messages, UserProfile,
@@ -142,6 +148,7 @@ rede-estadual-compras-publicas/
 │   ├── api.js            # cliente HTTP único
 │   └── App.test.js       # testes
 ├── public/               # brasão, logotipos e assinaturas do Governo de SP
+├── .github/workflows/    # ci.yml — lint, testes de front e API, build
 ├── craco.config.js
 ├── tailwind.config.js    # paleta gov.* e tipografia
 ├── Dockerfile            # dois estágios: build do front + runtime enxuto
@@ -175,20 +182,29 @@ Depois dessas vem uma rota curinga, que devolve o `index.html` para qualquer out
 O banco tem 18 tabelas. Os papéis são `admin`, `moderator` e `user`. Além do papel, um membro
 pode ser marcado como especialista em categorias específicas.
 
-**Tópico novo entra pendente.** Um administrador precisa aprovar antes de o tópico aparecer no
-fórum.
+**Tópico com imagem ou vídeo entra pendente** e só aparece depois que a moderação aprova.
+Tópico só de texto publica direto — a decisão de levar **todo** tópico à curadoria prévia está
+em aberto (`docs/QUESTIONS.md`, pergunta 11).
 
 ---
 
 ## Testes
 
 ```bash
-npm test
+make test
 ```
 
-Os cinco testes cobrem os pontos mais sensíveis da interface: o texto dos Termos de Uso, o
-aceite obrigatório do comunicado no primeiro acesso, a separação do calendário entre eventos
-futuros e realizados, o retorno ao topo ao trocar de página e o cálculo de progresso da trilha.
+Duas suítes (o `make test` roda as duas; em separado, `npm test` e `npm run test:api`):
+
+- **Front (`npm test`)** — cinco testes de interface: texto dos Termos de Uso, aceite do
+  comunicado no primeiro acesso, calendário de eventos, retorno ao topo e progresso da trilha.
+- **API (`npm run test:api`)** — testes com o `node:test` embutido do Node, sem dependência
+  nova: autenticação e banimento, visibilidade e moderação (visitante × usuário × moderador
+  contra `pending`, `rejected` e `locked`), exclusão em cascata (tópico, resposta, usuário) e
+  autorização das rotas administrativas. Cada arquivo roda num banco SQLite temporário
+  (`DB_PATH`) e nunca toca `server/forum.db` nem o volume do Docker.
+
+O CI (`.github/workflows/ci.yml`) roda lint, as duas suítes e o build em cada PR e na `main`.
 
 ---
 
@@ -205,9 +221,14 @@ O `.env.example` documenta todas as chaves:
 | `RECPSP_PORT` | Porta no host para o Docker (loopback). Padrão `8003`. | Não |
 | `ALLOWED_ORIGINS` | Origens aceitas pelo CORS, separadas por vírgula. Se mudar `RECPSP_PORT`, ajuste aqui também. | Só no Docker |
 
-Fora do Docker, sem `JWT_SECRET` o servidor sobe com um valor de desenvolvimento e apenas
-avisa no console — defina a variável antes de qualquer publicação. No Docker essa brecha
-não existe: o compose falha claro sem ela.
+O `JWT_SECRET` não tem mais valor fixo no código. O comportamento depende do ambiente:
+
+- **Com `NODE_ENV=production` e sem a variável, o servidor não sobe** — imprime o erro e
+  encerra. Vale dentro e fora do Docker; no compose a interpolação `${JWT_SECRET:?…}` já
+  barra antes disso.
+- **Fora de produção**, gera um segredo aleatório por processo. Ninguém precisa configurar
+  nada para rodar local, e o repositório não publica nenhuma constante que sirva para
+  forjar token. Em troca, reiniciar o servidor derruba as sessões abertas.
 
 O arquivo `.env` nunca entra no Git. O banco também não — em dev ele vive em
 `server/forum.db`; no Docker, em `/data/forum.db`, dentro do volume `lilp-recpsp_dbdata`.
@@ -233,10 +254,12 @@ git remote -v
 
 ## Estado e próximos passos
 
-A base recebida é um protótipo funcional de fórum. A containerização entrou no padrão do
-LILP em 26/08/2026 (compose `lilp-recpsp` + Makefile), mas parte das divergências herdadas
-segue aberta. O [`CLAUDE.md`](CLAUDE.md) lista tudo em detalhe — entre elas, ausência de CI
-e de auditoria de acessibilidade, credenciais de seed em código e CSP desativada.
+A base recebida é um protótipo funcional de fórum. Em 26/08/2026 três rodadas mexeram nela:
+a containerização no padrão LILP (compose `lilp-recpsp` + Makefile), o laço de verificação
+(testes de API + CI) e a rodada de dívida técnica (segurança, exclusão, contrato de erro,
+paleta e licença). O [`CLAUDE.md`](CLAUDE.md) lista tudo em detalhe. Seguem abertas a
+hospedagem fora do padrão, o SQLite mono-instância e a ausência de auditoria de
+acessibilidade.
 
 Há também uma **pendência de segurança herdada**: uma chave de API ficou exposta no histórico
 Git e precisa ser rotacionada. Os detalhes estão na seção *Segredos* do `CLAUDE.md`.
@@ -247,4 +270,5 @@ Tratar esses pontos é o trabalho de entrada da frente.
 
 ## Licença
 
-A definir. As frentes do LILP adotam MIT; esta ainda não tem arquivo `LICENSE`.
+MIT — ver o arquivo [`LICENSE`](LICENSE). O titular do copyright ainda precisa de
+confirmação da coordenação.

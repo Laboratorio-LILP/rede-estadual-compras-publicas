@@ -48,10 +48,19 @@ baixo no boot**. Metade dele executa antes de a primeira rota ser registrada.
 4. **Schema** — `CREATE TABLE IF NOT EXISTS` de 18 tabelas
 5. **`ALTER TABLE` avulsos** em `try/catch` vazios (o substituto das migrations)
 6. **Seed**, guardado por "existe algum usuário com papel admin?"
-7. Importação das playlists padrão do YouTube (assíncrona, dispara no boot)
+7. Importação das playlists padrão do YouTube (assíncrona, dispara no boot;
+   `SKIP_PLAYLIST_IMPORT=1` pula — é o que os testes usam)
 8. Seed fixo de 14 cursos na tabela `resources`
 9. Correções de acentuação em categorias e tags de bancos antigos
-10. Middlewares → rotas → error handler → estáticos → rota curinga → `listen`
+10. Middlewares → rotas → `app.use('/api', …)` (404 JSON para rota de API
+    inexistente) → estáticos → rota curinga `{*path}` → **error handler global,
+    por último** → `listen` (só quando executado diretamente; sob `require`, o
+    arquivo exporta o `app` — é assim que os testes de API o carregam)
+
+    A posição do error handler é deliberada: o Express só entrega o erro a
+    handlers declarados **depois** do ponto onde ele aconteceu. Registrado antes
+    do `express.static`, ele não pega falha ao servir arquivo — que então vaza
+    pelo handler padrão do Express. Middleware novo entra **antes** dele.
 
 Consequência prática: **inserir código na região errada não dá erro, dá
 comportamento silencioso**. Uma rota registrada depois da curinga nunca é
@@ -93,8 +102,8 @@ localizar; confirme pelo comentário de seção, que é estável:
 | 1646–1793 | ADMIN | usuários, interesses, banir, excluir, papel |
 | 1794–1834 | ESPECIALISTAS | conceder e revogar especialidade |
 | 1835–1893 | MODERAÇÃO DE TÓPICOS | pendentes, aprovar, rejeitar |
-| 1894–1899 | ERROR HANDLER GLOBAL | devolve 500 genérico |
-| 1900–1911 | SERVIR REACT BUILD | estáticos, rota curinga `{*path}`, `listen` |
+| 2228–2245 | SERVIR REACT BUILD | 404 JSON para `/api` inexistente, estáticos, rota curinga `{*path}` |
+| 2246–2276 | ERROR HANDLER GLOBAL | **última seção do arquivo**; 4xx preserva a mensagem (é assim que origem recusada vira 403 com texto próprio), 5xx generaliza para "Erro interno do servidor"; depois vem `listen` sob `require.main` e `module.exports` |
 
 **Armadilha de navegação:** as rotas de tópico estão espalhadas por **quatro**
 regiões — TÓPICOS (1048), POSTS (1328, onde mora o detalhe), RELATED (1521) e
@@ -104,15 +113,16 @@ inteiro é mais confiável do que ir à seção TÓPICOS.
 ## 4. O caminho de uma requisição
 
 ```
-CORS (lista de origens por ALLOWED_ORIGINS)
+CORS (lista de origens por ALLOWED_ORIGINS; origem recusada → 403)
   → express.json({ limit: '5mb' })
-  → helmet (CSP DESATIVADA, COEP desativado)
+  → helmet (CSP estrita: script-src 'self'; COEP desativado)
   → [authLimiter, só em /api/auth/register e /api/auth/login]
   → [auth | optionalAuth | adminOnly, por rota]
   → handler da rota (SQL inline, better-sqlite3 síncrono)
-  → error handler global (500 genérico)
+  → app.use('/api', …) devolve 404 em JSON para rota de API inexistente
   → express.static(build/)
   → app.get('{*path}') devolve index.html
+  → error handler global, POR ÚLTIMO (5xx genérico; 4xx mantém a mensagem)
 ```
 
 Notas que mudam decisões de implementação:
@@ -184,30 +194,59 @@ puro de usuário comum é publicado direto. A decisão registrada na apresentaç
 26/08 (Laís) é que **todo** tópico novo passe por curadoria prévia — o código
 ainda não faz isso. Ver `QUESTIONS.md`, pergunta 11.
 
-## 7. Exclusão em cascata é manual — e está incompleta
+## 7. Exclusão em cascata é manual
 
 As chaves estrangeiras foram declaradas **sem `ON DELETE`** (a única exceção é
 `user_course_progress`, com `ON DELETE CASCADE`). Como o boot liga
 `foreign_keys = ON`, apagar uma linha-pai com filhos **falha** com erro de
-restrição. Por isso cada exclusão limpa as dependências à mão.
+restrição. Por isso cada exclusão limpa as dependências à mão, dentro de
+transação.
 
-`DELETE /api/admin/users/:id` faz isso corretamente, dentro de uma transação de
-cerca de 80 linhas que percorre nove tabelas.
+A ordem de limpeza vive num lugar só, no topo do `server/index.js`:
+`apagarTopicoEmCascata` e `apagarPostEmCascata`. Nenhuma das funções abre
+transação — quem chama define o escopo, para que apagar uma conta com trinta
+tópicos continue sendo uma operação atômica só.
 
-**`DELETE /api/topics/:id` e `DELETE /api/posts/:id` não fazem.** Nenhum dos dois
-apaga `post_likes` e `post_dislikes` das respostas envolvidas, e nenhum dos dois
-roda em transação. O efeito esperado:
+### O defeito, confirmado em execução e corrigido em 26/08/2026
 
-- excluir um tópico cujas respostas tenham qualquer curtida ou descurtida
-  interrompe a operação no `DELETE FROM posts` com erro de chave estrangeira,
-  devolve 500 pelo error handler global — e o tópico fica **parcialmente
-  destruído**: votos, opções de enquete, tags e curtidas já foram apagados antes.
-- excluir uma resposta curtida falha do mesmo jeito.
+A inferência de leitura registrada na v1.0 deste documento estava correta:
 
-> Estatuto: **inferência de alta confiança a partir da leitura do código**
-> (`foreign_keys = ON` + FK sem `ON DELETE` + ordem das operações). Não foi
-> executado nesta sessão. Confirmar é um teste de dois minutos: criar tópico,
-> responder, curtir a resposta, excluir o tópico.
+- Reprodução, com teste escrito antes da correção: criar tópico → responder →
+  curtir a resposta → excluir o tópico devolvia **500**
+  (`FOREIGN KEY constraint failed`) e deixava o tópico **parcialmente
+  destruído** — tags e curtidas do tópico já apagadas; tópico, respostas e
+  curtidas de resposta de pé. Excluir uma resposta curtida falhava igual.
+- A mesma classe de erro atingia `DELETE /api/admin/users/:id`: a limpeza
+  cobria as curtidas **nos tópicos da conta** e as curtidas **feitas pela
+  conta**, mas não a curtida de um terceiro numa resposta que a conta escreveu
+  em tópico alheio. Esse caso estourava a FK.
+- Correção: `post_likes` e `post_dislikes` entram na ordem de cascata, e as
+  três rotas rodam em transação. Regressão coberta por
+  `server/test/exclusao.test.js`.
+- A saída estrutural — migrar as FKs para `ON DELETE CASCADE`, que elimina a
+  classe inteira de erro — mexe no schema e ficou como recomendação para o
+  ADR 0001 (decisão de banco; `docs/QUESTIONS.md`, pergunta 4).
+
+### Excluir conta anonimiza; não apaga o conteúdo público
+
+Decisão da frente, 26/08/2026. `DELETE /api/admin/users/:id` **não** apaga mais
+os tópicos e respostas da conta: reatribui a autoria à conta sentinela
+`usuario-removido@recpsp.invalid` e elimina o que é pessoal — mensagens,
+notificações, interesses, especializações e reações.
+
+O motivo é de domínio, não técnico: apagar a conta de um servidor apagava junto
+**todas as respostas de terceiros** nos tópicos dele. Uma discussão que rendeu
+vinte contribuições de outros órgãos desaparecia com a saída de uma pessoa.
+
+A sentinela é criada sob demanda, fica **banida** (não autentica), tem senha
+aleatória e sua identidade é reservada no cadastro — se alguém a registrasse,
+passaria a assinar o conteúdo de todas as contas já removidas. A própria rota
+recusa excluí-la, com 400.
+
+`DELETE /api/categories/:id` passou a **recusar** o tema em uso com **409** e
+mensagem explicando quantos tópicos o prendem, em vez de estourar a FK e
+devolver 500 genérico. Sem tópicos, limpa `user_categories`,
+`user_specialties` e `specialist_requests` em transação, e remove o tema.
 
 **Regra para quem for mexer aqui:** toda tabela nova que referencie `users`,
 `topics` ou `posts` precisa entrar nas três rotinas de exclusão — ou, melhor,
@@ -284,11 +323,41 @@ Estas não são "melhorias futuras": elas mudam como o código deve ser escrito 
 | Sem paginação fora de `/api/topics` | `/api/categories/:id/topics`, `/api/resources` e `/api/admin/users` devolvem tudo |
 | `viewedTopics` é um `Map` em memória | a janela de 30 min para contagem de visualizações se perde a cada reinício e não funciona com mais de uma instância |
 | SQLite mono-instância | impede rodar duas réplicas; decisão sobre Postgres pendente (ADR a escrever) |
-| CSP desativada | qualquer trabalho de segurança de front esbarra nisso primeiro |
-| Sem CI | nada valida lint nem testes num PR; a verificação é manual |
-| 5 testes de front | a rede de proteção cobre termos de uso, comunicado, calendário, rolagem e progresso — nada de API |
+| `style-src` ainda aceita `'unsafe-inline'` | o atributo `style` do React exige; `script-src` já é `'self'` |
+| Fonte Montserrat vem do Google | cada visitante do fórum faz requisição a `fonts.googleapis.com`; hospedar localmente é o passo seguinte |
+| Testes cobrem o crítico, não o todo | 5 de front + 24 de API (seção 12); mensagens, notificações, votação, busca e recursos seguem sem cobertura |
 
-## 12. Manutenção deste documento
+## 12. Laço de verificação
+
+Instalado em 26/08/2026. O comando que responde "quebrou?" é:
+
+```bash
+make test        # front (react-scripts) + API (node:test)
+```
+
+- **Executor da API: `node:test`**, embutido no Node 18+. Escolha deliberada: o
+  runtime da imagem Docker instala só as `dependencies` (os 7 pacotes do
+  servidor), então qualquer executor externo teria de viver em `devDependencies`
+  e nunca existir em produção — o `node:test` zera a dependência e o risco de
+  dessincronizar o lock (que já rejeitou `npm ci` uma vez, ver `CLAUDE.md`).
+  As requisições usam o `fetch` global do Node contra `app.listen(0)`.
+- **Pré-requisito no servidor:** `server/index.js` exporta o `app` e só chama
+  `listen` quando executado diretamente (`require.main === module`);
+  `SKIP_PLAYLIST_IMPORT=1` pula a importação de playlists no boot.
+- **Isolamento:** cada arquivo de teste roda em processo próprio (padrão do
+  `node --test`) com `DB_PATH` apontando para um arquivo temporário — o seed
+  roda limpo e nada toca `server/forum.db` nem o volume do container.
+- **Orçamento de autenticação:** o limitador permite 20 tentativas por IP a
+  cada 15 minutos e vale nos testes; `server/test/helpers.js` faz cache de
+  token por e-mail. Arquivo de teste novo deve economizar logins.
+- **Cobertura (24 testes em `server/test/`):** autenticação (aceite de termos,
+  banimento, papel relido a cada requisição), visibilidade/moderação nos quatro
+  pontos onde a regra está repetida (seção 6), exclusão em cascata e política de
+  anonimização (seção 7) e autorização admin × moderador × usuário.
+- **CI:** `.github/workflows/ci.yml` roda `npm ci`, lint, as duas suítes e o
+  build, em PR e na `main`, com Node 22 (mesma major da imagem Docker).
+
+## 13. Manutenção deste documento
 
 Atualize quando mudar a **estrutura**, não a cada funcionalidade: nova seção no
 `server/index.js`, nova tabela, mudança de papéis ou de regra de visibilidade,

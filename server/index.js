@@ -118,22 +118,49 @@ function apagarPostEmCascata(postId) {
 const EMAIL_USUARIO_REMOVIDO = 'usuario-removido@recpsp.invalid';
 const NOME_USUARIO_REMOVIDO = 'Usuário removido';
 
+// A identidade da sentinela e reservada em TODA rota que grava users.email ou
+// users.username — cadastro e edicao de perfil. Nao basta guardar o cadastro:
+// bastaria criar uma conta comum e depois editar o perfil para o e-mail da
+// sentinela (antes dela existir, o UNIQUE nao protege) para, na primeira
+// exclusao de conta, passar a assinar o conteudo de todos os removidos.
+function identidadeReservada(email, username) {
+  if (email !== undefined && email !== null
+      && String(email).trim().toLowerCase() === EMAIL_USUARIO_REMOVIDO) return true;
+  if (username !== undefined && username !== null
+      && String(username).trim().toLowerCase() === NOME_USUARIO_REMOVIDO.toLowerCase()) return true;
+  return false;
+}
+
 // Sentinela e criada sob demanda, banida (nao autentica) e com senha aleatoria
 // que ninguem conhece — nem quem le o repositorio.
+//
+// A identidade e reservada nas rotas de escrita, mas um banco anterior a essa
+// reserva pode ja ter alguem com o nome 'Usuário removido'. users.username e
+// UNIQUE, entao o INSERT falharia e — por rodar dentro da transacao de
+// exclusao — derrubaria TODA exclusao de conta com 500 enquanto o nome
+// estivesse tomado. A sentinela nunca depende de um nome estar livre.
 function obterUsuarioRemovido() {
   const existente = db.prepare('SELECT id FROM users WHERE email = ?').get(EMAIL_USUARIO_REMOVIDO);
   if (existente) return existente.id;
+
   const senhaInutilizavel = bcrypt.hashSync(require('crypto').randomBytes(32).toString('hex'), 10);
-  const criado = db.prepare(`
+  const inserir = db.prepare(`
     INSERT INTO users (username, email, password, role, banned, bio)
     VALUES (?, ?, ?, 'user', 1, ?)
-  `).run(
-    NOME_USUARIO_REMOVIDO,
-    EMAIL_USUARIO_REMOVIDO,
-    senhaInutilizavel,
-    'Conta removida. As publicações abaixo foram mantidas para preservar o histórico das discussões.',
-  );
-  return Number(criado.lastInsertRowid);
+  `);
+  const bio = 'Conta removida. As publicações abaixo foram mantidas para preservar o histórico das discussões.';
+
+  let nome = NOME_USUARIO_REMOVIDO;
+  const tomado = db.prepare('SELECT id FROM users WHERE username = ?').get(nome);
+  if (tomado) {
+    // Nao renomeamos a conta de terceiro: a sentinela cede e usa um sufixo.
+    let sufixo = 2;
+    while (db.prepare('SELECT id FROM users WHERE username = ?').get(`${NOME_USUARIO_REMOVIDO} (${sufixo})`)) sufixo++;
+    nome = `${NOME_USUARIO_REMOVIDO} (${sufixo})`;
+    console.warn(`AVISO: o nome "${NOME_USUARIO_REMOVIDO}" ja pertence ao usuario ${tomado.id}; a sentinela ficou como "${nome}".`);
+  }
+
+  return Number(inserir.run(nome, EMAIL_USUARIO_REMOVIDO, senhaInutilizavel, bio).lastInsertRowid);
 }
 
 // Remove a conta preservando o conteudo publico. NAO abre transacao: quem
@@ -144,6 +171,11 @@ function anonimizarERemoverUsuario(userId) {
   // --- dado pessoal: sai ---
   db.prepare('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?').run(userId, userId);
   db.prepare('DELETE FROM notifications WHERE user_id = ?').run(userId);
+  // As notificacoes de mensagem vivem na caixa do DESTINATARIO e guardam o
+  // nome do remetente no texto ("Nova mensagem de Fulano") com reference_id
+  // apontando para ele. Sao de terceiros, entao sobreviviam a exclusao: o nome
+  // real continuava visivel e o link levava a um perfil que nao existe mais.
+  db.prepare("DELETE FROM notifications WHERE type = 'message' AND reference_id = ?").run(userId);
   db.prepare('DELETE FROM user_categories WHERE user_id = ?').run(userId);
   db.prepare('DELETE FROM user_specialties WHERE user_id = ?').run(userId);
   db.prepare('DELETE FROM specialist_requests WHERE user_id = ?').run(userId);
@@ -726,10 +758,16 @@ async function importDefaultPlaylists() {
   console.log(`[playlists] ${importados} video(s) importado(s) de ${defaultPlaylists.length} playlists`);
 }
 
-// Dispara sem bloquear o boot; a falha vira log, nunca rejeicao nao tratada.
-importDefaultPlaylists().catch((err) => {
-  console.warn('[playlists] Importacao inicial falhou:', err.message);
-});
+// Num banco vazio a importação dispara chamadas de rede ao YouTube no boot;
+// SKIP_PLAYLIST_IMPORT=1 permite pular (testes usam banco vazio por execução).
+// Sem YOUTUBE_API_KEY a função já retorna de imediato, mas a variável mantém o
+// controle explícito — os testes não dependem de a chave estar ausente.
+// Dispara sem bloquear o boot; a falha vira log, nunca rejeição não tratada.
+if (process.env.SKIP_PLAYLIST_IMPORT !== '1') {
+  importDefaultPlaylists().catch((err) => {
+    console.warn('[playlists] Importacao inicial falhou:', err.message);
+  });
+}
 
 // =================== CURSOS DE CAPACITAÇÃO (seed fixo) ===================
 const cursos = [
@@ -929,10 +967,7 @@ app.post('/api/auth/register', authLimiter, (req, res) => {
     return res.status(400).json({ error: `Senha deve ter pelo menos ${MIN_PASSWORD} caracteres` });
   }
   if (!accept_terms) return res.status(400).json({ error: 'É necessário aceitar os Termos de Uso para criar uma conta' });
-  // A identidade da conta sentinela e reservada: se alguem a registrasse,
-  // passaria a assinar todo o conteudo de contas ja removidas.
-  if (String(email).trim().toLowerCase() === EMAIL_USUARIO_REMOVIDO
-      || username.trim().toLowerCase() === NOME_USUARIO_REMOVIDO.toLowerCase()) {
+  if (identidadeReservada(email, username)) {
     return res.status(400).json({ error: 'Nome de usuario ou email ja em uso' });
   }
   try {
@@ -1029,6 +1064,11 @@ app.put('/api/auth/profile', auth, (req, res) => {
   }
   if (email !== undefined && !EMAIL_REGEX.test(String(email))) {
     return res.status(400).json({ error: 'Email inválido' });
+  }
+  // Mesma reserva do cadastro: sem isto, editar o perfil era o caminho aberto
+  // para assumir a identidade da conta sentinela.
+  if (identidadeReservada(email, username)) {
+    return res.status(400).json({ error: 'Nome ou email ja em uso' });
   }
   if (password !== undefined) {
     if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
@@ -1585,10 +1625,11 @@ app.delete('/api/topics/:id', auth, (req, res) => {
   const topic = db.prepare('SELECT user_id FROM topics WHERE id = ?').get(req.params.id);
   if (!topic) return res.status(404).json({ error: 'Topico nao encontrado' });
   if (topic.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissao' });
+  // FKs sem ON DELETE + foreign_keys = ON: as curtidas e descurtidas das
+  // respostas precisam sair antes dos posts, e tudo dentro de transação para a
+  // exclusão ser atômica. A ordem vive em apagarTopicoEmCascata, compartilhada
+  // com a remoção de conta — ver docs/ARCHITECTURE.md, seção 7.
   try {
-    // Transacao: ou o topico some inteiro, ou o banco fica exatamente como
-    // estava. Sem ela, uma falha no meio destruia tags e curtidas e deixava o
-    // topico no ar.
     db.transaction(apagarTopicoEmCascata)(Number(req.params.id));
     res.json({ ok: true });
   } catch (err) {
@@ -1806,8 +1847,9 @@ app.delete('/api/posts/:id', auth, (req, res) => {
   const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post nao encontrado' });
   if (post.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissao' });
+  // Curtidas e descurtidas referenciam o post (FK sem ON DELETE) — limpar
+  // antes, em transação. Apagar um post curtido devolvia 500.
   try {
-    // Apagar um post curtido violava a FK de post_likes e devolvia 500.
     db.transaction(apagarPostEmCascata)(Number(req.params.id));
     res.json({ ok: true });
   } catch (err) {
@@ -2222,7 +2264,13 @@ app.use((err, req, res, next) => {
   res.status(status).json(body);
 });
 
-app.listen(PORT, () => {
-  console.log(`\nServidor rodando na porta ${PORT}`);
-  console.log('Forum RECPSP API pronta!\n');
-});
+// Sob require (testes), exporta o app sem ocupar porta; executado diretamente
+// (npm start / npm run server), sobe o servidor como sempre.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`\nServidor rodando na porta ${PORT}`);
+    console.log('Forum RECPSP API pronta!\n');
+  });
+}
+
+module.exports = app;

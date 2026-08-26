@@ -17,6 +17,8 @@
     "server": "node server/index.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:api": "node --test server/test/*.test.js",
+    "lint": "eslint src server --ext .js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
