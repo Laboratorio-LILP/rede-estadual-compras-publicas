@@ -7,7 +7,28 @@ function escapeHtml(text) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Esquemas que podem virar codigo quando o usuario clica no link.
+// O conteudo do forum e escrito por terceiros e renderizado com
+// dangerouslySetInnerHTML: o escape de HTML impede injetar <script>, mas nao
+// impedia [texto](javascript:...) — o esquema ia direto para o href.
+const ESQUEMAS_PERMITIDOS = ['http:', 'https:', 'mailto:'];
+
+export function sanitizeUrl(rawUrl) {
+  const url = String(rawUrl).trim();
+  // Link relativo ou ancora nao carrega esquema: nao ha o que executar.
+  if (/^[/#?]/.test(url)) return url;
+  try {
+    // Base fixa so para resolver o esquema; nao usamos o resultado resolvido.
+    const parsed = new URL(url, 'https://recpsp.invalid');
+    if (!ESQUEMAS_PERMITIDOS.includes(parsed.protocol)) return null;
+    return url;
+  } catch {
+    return null;
+  }
 }
 
 function formatLine(line) {
@@ -25,8 +46,16 @@ function formatLine(line) {
   // Italico: *texto*
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-  // Links: [texto](url)
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>');
+  // Links: [texto](url) — so http, https e mailto viram link.
+  // URL recusada continua visivel como texto, para o leitor ver o que estava
+  // escrito em vez de o link sumir sem explicacao.
+  // Atencao: `url` aqui JA passou por escapeHtml no inicio de formatLine.
+  // Escapar de novo transformaria &amp; em &amp;amp; e quebraria query strings.
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, texto, url) => {
+    const segura = sanitizeUrl(url);
+    if (!segura) return `${texto} (${url})`;
+    return `<a href="${segura}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${texto}</a>`;
+  });
 
   return html;
 }

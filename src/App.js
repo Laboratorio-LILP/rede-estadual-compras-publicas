@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ForumNoticeModal from './components/ForumNoticeModal';
 import ScrollToTop from './components/ScrollToTop';
+import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -47,6 +48,9 @@ function App() {
             <Navbar />
             <ForumNoticeModal />
             <main>
+              {/* Dentro do BrowserRouter (o fallback usa <Link>) e em volta das
+                  rotas: um erro numa pagina nao derruba Navbar nem Footer. */}
+              <ErrorBoundary>
               <Routes>
               <Route path="/" element={<Portal />} />
               <Route path="/forum" element={<Home />} />
@@ -68,6 +72,7 @@ function App() {
               <Route path="/termos" element={<Terms />} />
               <Route path="*" element={<NotFound />} />
               </Routes>
+              </ErrorBoundary>
             </main>
             <Footer />
           </div>

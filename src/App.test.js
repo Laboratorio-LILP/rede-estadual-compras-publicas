@@ -45,9 +45,14 @@ test('exige o aceite do comunicado no primeiro acesso ao fórum', async () => {
     role: 'user',
     forum_notice_accepted: false,
   }));
+  // Response fiel: apiFetch le o corpo com text() para conseguir tratar
+  // resposta nao-JSON (erro de gateway, HTML do SPA) sem estourar no parse.
+  const corpo = { ok: true, accepted_at: '2026-07-30 12:00:00' };
   jest.spyOn(global, 'fetch').mockResolvedValue({
     ok: true,
-    json: async () => ({ ok: true, accepted_at: '2026-07-30 12:00:00' }),
+    status: 200,
+    json: async () => corpo,
+    text: async () => JSON.stringify(corpo),
   });
 
   render(
