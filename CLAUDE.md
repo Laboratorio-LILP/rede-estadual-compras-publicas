@@ -96,19 +96,32 @@ Estes pontos **não** seguem o que BDLP e PESCP já adotaram. Corrigi-los é tra
 
 | Ponto | Como está aqui | Padrão LILP |
 |---|---|---|
-| **Credenciais de seed** | Cria `admin` / `admin123` e 5 usuários de teste com `teste123`, em código versionado e público. | Sem credencial padrão em repositório. |
-| **`JWT_SECRET`** | No código, fallback `'dev-only-secret-change-in-production'` com aviso. **Na via canônica (compose) a lacuna fechou em 26/08:** sem a variável, o stack não sobe. | Segredos por env, **sem fallback** — o stack falha claro se faltarem. |
-| **CSP** | Desativada no helmet (`contentSecurityPolicy: false`). | CSP estrita (`script-src 'self'`) em produção. |
+| **Credenciais de seed** | **Resolvida em 26/08:** em produção o admin nasce com senha de `ADMIN_PASSWORD` ou sorteada e impressa uma única vez no log; os dados de demonstração só entram com `SEED_DEMO_DATA=1`. Fora de produção o padrão `admin123` segue, por conveniência de dev. | Sem credencial padrão em repositório. |
+| **`JWT_SECRET`** | **Resolvida em 26/08:** com `NODE_ENV=production` o servidor recusa subir sem a variável; fora de produção gera segredo aleatório por processo. O fallback fixo saiu do código. | Segredos por env, **sem fallback** — o stack falha claro se faltarem. |
+| **CSP** | **Resolvida em 26/08:** CSP estrita com `script-src 'self'` (o build desliga o runtime chunk inline via `INLINE_RUNTIME_CHUNK=false`). `style-src` ainda precisa de `'unsafe-inline'` pelo atributo `style` do React, e libera `fonts.googleapis.com`. | CSP estrita (`script-src 'self'`) em produção. |
 | **Origens CORS** | **Resolvida em 26/08:** `ALLOWED_ORIGINS` por env; sem a variável, vale a lista original (que inclui `onrender.com`). | Configuração por ambiente. |
 | **Hospedagem** | Versão de teste em nuvem pública externa. | VM da SGGD atrás da borda, acesso por VPN (ADR-006). |
 | **Banco** | SQLite em arquivo — desde 26/08 num volume nomeado (sobrevive a rebuild), mas segue mono-instância. | Postgres em contêiner. |
 | **Empacotamento** | **Resolvida em 26/08:** compose `lilp-recpsp` + Makefile, loopback 8003, imagem em dois estágios. | Docker Compose + Makefile. |
 | **CI** | Não existe. | GitHub Actions com lint + testes nos PRs. |
-| **Paleta** | `#FF161F` em `tailwind.config.js`. | GESP **`#ED1C24`** (Pantone 485 C, fiel ao manual). |
+| **Paleta** | **Resolvida em 26/08:** `#ED1C24` no `tailwind.config.js` e nos 38 literais espalhados pelo `src/`. | GESP **`#ED1C24`** (Pantone 485 C, fiel ao manual). |
 | **Acessibilidade** | Sem auditoria. | eMAG 3.1 + WCAG 2.0 AA, auditado. |
-| **Licença** | Ausente. | MIT, com arquivo `LICENSE`. |
+| **Licença** | **Resolvida em 26/08:** arquivo `LICENSE` (MIT). Confirmar o titular do copyright com a coordenação. | MIT, com arquivo `LICENSE`. |
 
-Na importação nada foi alterado — o código chegou exatamente como o Eduardo entregou em 31/07/2026, com histórico e autoria preservados. Em 26/08/2026 a containerização tratou três linhas (Empacotamento, Origens CORS e o `JWT_SECRET` na via canônica); o restante segue aberto.
+Na importação nada foi alterado — o código chegou exatamente como o Eduardo entregou em 31/07/2026, com histórico e autoria preservados. Em 26/08/2026 a containerização tratou três linhas (Empacotamento, Origens CORS e o `JWT_SECRET` na via canônica), e a rodada de dívida técnica do mesmo dia fechou Credenciais de seed, `JWT_SECRET` no código, CSP, Paleta e Licença. Seguem abertas: Hospedagem, Banco, CI (em curso em outra frente) e Acessibilidade.
+
+## Comportamentos que mudaram na rodada de dívida técnica (26/08/2026)
+
+Correções verificadas contra o servidor real. Quem for mexer no código precisa saber:
+
+- **Exclusão é atômica.** `DELETE` de tópico, post e categoria roda dentro de `db.transaction()`, com a ordem de cascata centralizada em `apagarTopicoEmCascata` / `apagarPostEmCascata`. Antes a sequência solta violava a FK de `post_likes` no meio e deixava o tópico vivo, já sem tags nem curtidas.
+- **Excluir conta anonimiza, não apaga.** Tópicos e posts são reatribuídos à conta sentinela `usuario-removido@recpsp.invalid` (banida, senha aleatória, não registrável); mensagens, notificações, interesses e reações do usuário são eliminados. Antes a exclusão levava junto as respostas de terceiros.
+- **Excluir tema em uso devolve 409**, não 500.
+- **Rota de API inexistente devolve 404 em JSON.** Antes caía na curinga do SPA e o cliente estourava no `res.json()`.
+- **O handler de erro global é o último `app.use`.** Registrá-lo antes do `express.static` faz o Express ignorá-lo para falhas de arquivo estático.
+- **A chave do YouTube viaja no cabeçalho `X-goog-api-key`**, nunca na query string, e nenhuma mensagem crua do Google chega ao cliente. Sem a chave, a importação fica desligada e responde 503.
+- **`trust proxy` é configurável (`TRUST_PROXY`, padrão `loopback`).** Sem isso, atrás de proxy o rate limit de login conta todos os usuários como um IP só.
+- **`PUT /api/auth/profile` valida como o cadastro.** Antes aceitava e-mail sem formato válido e descartava senha curta em silêncio, respondendo 200.
 
 ## Flags de funcionalidade
 
