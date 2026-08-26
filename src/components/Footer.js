@@ -120,7 +120,7 @@ export default function Footer() {
             © {new Date().getFullYear()} RECPSP — Governo do Estado de São Paulo. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FF161F' }} />
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#ED1C24' }} />
             <p className="text-xs" style={{ color: '#6b7a99' }}>
               Rede Estadual de Compras Públicas de São Paulo
             </p>

@@ -253,7 +253,7 @@ export default function Terms() {
           <Link
             to="/register"
             className="text-sm font-semibold px-4 py-2 rounded text-white transition hover:opacity-90"
-            style={{ backgroundColor: '#FF161F' }}
+            style={{ backgroundColor: '#ED1C24' }}
           >
             Voltar ao cadastro
           </Link>

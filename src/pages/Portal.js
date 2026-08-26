@@ -5,7 +5,7 @@ const sections = [
     title: 'Fórum',
     description: 'Discussões, dúvidas e troca de experiências sobre contratações públicas',
     to: '/forum',
-    accent: '#FF161F',
+    accent: '#ED1C24',
     available: true,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
@@ -78,7 +78,7 @@ const sections = [
   {
     title: 'Consultoria Executiva',
     description: 'Apoio especializado para órgãos e entidades em contratações estratégicas',
-    accent: '#FF161F',
+    accent: '#ED1C24',
     available: false,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">

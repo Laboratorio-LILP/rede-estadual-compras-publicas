@@ -9,7 +9,7 @@ export const CAPACITACAO_COURSES = [
     cargaHoras: 40,
     modalidade: 'EAD',
     instituicao: 'ENAP',
-    accent: '#FF161F',
+    accent: '#ED1C24',
     url: CAPACITACAO_PORTAL_URL,
   },
   {
@@ -75,7 +75,7 @@ export const CAPACITACAO_COURSES = [
     cargaHoras: 16,
     modalidade: 'EAD',
     instituicao: 'ENAP',
-    accent: '#FF161F',
+    accent: '#ED1C24',
     url: CAPACITACAO_PORTAL_URL,
   },
   {

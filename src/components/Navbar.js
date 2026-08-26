@@ -642,9 +642,9 @@ export default function Navbar() {
                 >
                   Entrar
                 </Link>
-                <Link to="/register" className="text-sm text-white font-semibold px-4 py-1.5 rounded transition" style={{ backgroundColor: '#FF161F' }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#CC111A'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#FF161F'}
+                <Link to="/register" className="text-sm text-white font-semibold px-4 py-1.5 rounded transition" style={{ backgroundColor: '#ED1C24' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#BE161D'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ED1C24'}
                 >
                   Inscrever
                 </Link>

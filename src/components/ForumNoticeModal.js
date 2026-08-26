@@ -105,7 +105,7 @@ export default function ForumNoticeModal() {
               type="button"
               onClick={handleAccept}
               disabled={accepting || !agreed}
-              className="rounded-lg bg-[#FF161F] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-[#ED1C24] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {accepting ? 'Registrando aceite...' : 'Aceitar e continuar'}
             </button>

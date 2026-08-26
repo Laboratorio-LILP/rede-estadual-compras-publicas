@@ -332,7 +332,7 @@ export default function NewTopic() {
       <div className="flex items-start gap-3 mb-6">
         <div
           className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: '#FF161F14', color: '#FF161F' }}
+          style={{ backgroundColor: '#ED1C2414', color: '#ED1C24' }}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -405,7 +405,7 @@ export default function NewTopic() {
         {/* ====== Título ====== */}
         <div className="mb-5">
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Título do tópico <span style={{ color: '#FF161F' }}>*</span>
+            Título do tópico <span style={{ color: '#ED1C24' }}>*</span>
           </label>
           <div className="relative">
             <input
@@ -625,7 +625,7 @@ export default function NewTopic() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Categoria <span style={{ color: '#FF161F' }}>*</span>
+              Categoria <span style={{ color: '#ED1C24' }}>*</span>
             </label>
             <select
               value={categoryId}

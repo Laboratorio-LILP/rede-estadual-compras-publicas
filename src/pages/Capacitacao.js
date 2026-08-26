@@ -26,7 +26,7 @@ const trilhas = [
     descricao: 'Formação completa para conduzir todas as etapas do processo de contratação sob a Nova Lei de Licitações.',
     nivel: 'Intermediário',
     carga: '90h',
-    accent: '#FF161F',
+    accent: '#ED1C24',
     popular: true,
     jornada: [
       'Fundamentos da Lei nº 14.133/2021',
@@ -125,7 +125,7 @@ const trilhas = [
     descricao: 'Visão estratégica de governança, riscos e resultados nas contratações públicas.',
     nivel: 'Avançado',
     carga: '60h',
-    accent: '#FF161F',
+    accent: '#ED1C24',
     jornada: [
       'Governança e liderança nas contratações',
       'Planejamento estratégico de compras',
@@ -153,7 +153,7 @@ const trilhas = [
 ];
 
 const materiais = [
-  { tipo: 'Guia', titulo: 'Guia prático da Lei nº 14.133/2021', tema: 'Legislação', descricao: 'Referência sobre os principais dispositivos e mudanças da Nova Lei de Licitações.', accent: '#FF161F' },
+  { tipo: 'Guia', titulo: 'Guia prático da Lei nº 14.133/2021', tema: 'Legislação', descricao: 'Referência sobre os principais dispositivos e mudanças da Nova Lei de Licitações.', accent: '#ED1C24' },
   { tipo: 'Checklist', titulo: 'Checklist para Estudo Técnico Preliminar', tema: 'Planejamento', descricao: 'Passo a passo para elaborar um ETP consistente e bem fundamentado.', accent: '#034EA2' },
   { tipo: 'Modelo', titulo: 'Modelo de Termo de Referência', tema: 'Instrução Processual', descricao: 'Modelo editável para estruturar o Termo de Referência da contratação.', accent: '#0B9247' },
   { tipo: 'Cartilha', titulo: 'Cartilha de Pesquisa de Preços', tema: 'Instrução Processual', descricao: 'Orientações práticas para conduzir a pesquisa de preços com segurança.', accent: '#4297D3' },
@@ -164,13 +164,13 @@ const materiais = [
 ];
 
 const instituicoes = [
-  { sigla: 'SGGD', nome: 'Secretaria de Gestão e Governo Digital', descricao: 'Coordena a política de compras e a transformação digital do Estado.', accent: '#FF161F' },
+  { sigla: 'SGGD', nome: 'Secretaria de Gestão e Governo Digital', descricao: 'Coordena a política de compras e a transformação digital do Estado.', accent: '#ED1C24' },
   { sigla: 'LILP', nome: 'Laboratório de Inovação em Licitações Públicas', descricao: 'Pesquisa e prototipa soluções para modernizar as contratações públicas.', accent: '#034EA2' },
   { sigla: 'USP', nome: 'Universidade de São Paulo', descricao: 'Produção acadêmica e formação de alto nível em administração pública.', accent: '#0B9247' },
   { sigla: 'UNESP', nome: 'Universidade Estadual Paulista', descricao: 'Pesquisa aplicada e extensão universitária em gestão pública.', accent: '#233254' },
   { sigla: 'UNICAMP', nome: 'Universidade Estadual de Campinas', descricao: 'Estudos e capacitação em inovação e políticas públicas.', accent: '#4297D3' },
   { sigla: 'EGESP', nome: 'Escola de Governo do Estado de São Paulo', descricao: 'Capacitação e desenvolvimento de servidores públicos estaduais.', accent: '#94AA5A' },
-  { sigla: 'ENAP', nome: 'Escola Nacional de Administração Pública', descricao: 'Cursos e trilhas de referência nacional em contratações públicas.', accent: '#FF161F' },
+  { sigla: 'ENAP', nome: 'Escola Nacional de Administração Pública', descricao: 'Cursos e trilhas de referência nacional em contratações públicas.', accent: '#ED1C24' },
   { sigla: 'TCESP', nome: 'Tribunal de Contas do Estado de São Paulo', descricao: 'Orientação e controle externo das contratações estaduais.', accent: '#034EA2' },
   { sigla: 'PGE/SP', nome: 'Procuradoria Geral do Estado de São Paulo', descricao: 'Assessoria jurídica e segurança normativa nas contratações.', accent: '#233254' },
 ];
@@ -186,7 +186,7 @@ const RECOMENDACOES = {
   agente: {
     titulo: 'Agente de Contratação',
     trilhaId: 'agente-contratacao',
-    accent: '#FF161F',
+    accent: '#ED1C24',
     motivo: 'Identificamos o perfil de agente de contratação — a trilha cobre todo o processo sob a Lei nº 14.133/2021.',
     cursos: ['Fundamentos da Lei nº 14.133/2021', 'Planejamento da contratação', 'Termo de Referência', 'Seleção do fornecedor'],
   },
@@ -368,7 +368,7 @@ function CourseCard({ curso, index, onAccess }) {
 const NIVEL_COLOR = {
   'Introdutório': '#0B9247',
   'Intermediário': '#034EA2',
-  'Avançado': '#FF161F',
+  'Avançado': '#ED1C24',
 };
 
 function NivelBadge({ nivel }) {
@@ -401,7 +401,7 @@ function TrilhaCard({ trilha, index, isSelected, onSelect }) {
         {trilha.popular && (
           <span
             className="self-start inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full mb-2"
-            style={{ backgroundColor: '#FF161F14', color: '#FF161F' }}
+            style={{ backgroundColor: '#ED1C2414', color: '#ED1C24' }}
           >
             <Icon className="w-3 h-3">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -894,7 +894,7 @@ export default function Capacitacao() {
       >
         {/* Diagonal vermelha sutil */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" aria-hidden="true">
-          <line x1="58%" y1="-5%" x2="102%" y2="105%" stroke="#FF161F" strokeWidth="2" opacity="0.35" />
+          <line x1="58%" y1="-5%" x2="102%" y2="105%" stroke="#ED1C24" strokeWidth="2" opacity="0.35" />
         </svg>
         {/* Motif de rede (branco, baixa opacidade) */}
         <svg
@@ -915,14 +915,14 @@ export default function Capacitacao() {
             <circle cx="200" cy="70" r="7" /><circle cx="150" cy="120" r="9" />
             <circle cx="60" cy="150" r="7" /><circle cx="220" cy="150" r="6" />
           </g>
-          <circle cx="120" cy="40" r="10" fill="#FF161F" />
+          <circle cx="120" cy="40" r="10" fill="#ED1C24" />
         </svg>
 
         <div className="relative z-10 max-w-2xl">
           <span className="gov-reveal text-xs font-semibold uppercase tracking-widest" style={{ color: '#4297D3', animationDelay: '0ms' }}>
             Rede Estadual de Compras Públicas · SP
           </span>
-          <div className="gov-reveal mt-4 mb-5 h-1 w-12 rounded-full" style={{ backgroundColor: '#FF161F', animationDelay: '60ms' }} aria-hidden="true" />
+          <div className="gov-reveal mt-4 mb-5 h-1 w-12 rounded-full" style={{ backgroundColor: '#ED1C24', animationDelay: '60ms' }} aria-hidden="true" />
           <h1 className="gov-reveal font-montserrat text-4xl sm:text-5xl font-extrabold text-white leading-tight" style={{ animationDelay: '120ms' }}>
             Centro de Capacitação
           </h1>
@@ -933,9 +933,9 @@ export default function Capacitacao() {
             <button
               onClick={() => scrollTo('trilhas')}
               className="text-sm text-white font-semibold px-6 py-3 rounded transition-colors"
-              style={{ backgroundColor: '#FF161F' }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#CC111A')}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#FF161F')}
+              style={{ backgroundColor: '#ED1C24' }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#BE161D')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#ED1C24')}
             >
               Iniciar aprendizagem
             </button>
@@ -992,10 +992,10 @@ export default function Capacitacao() {
         <>
           {/* Minha Jornada */}
           <section id="minha-jornada" className="mb-16 scroll-mt-28">
-        <div className="gov-reveal bg-white border border-gray-200 rounded-xl shadow-card p-6 sm:p-8" style={{ borderTop: '3px solid #FF161F' }}>
+        <div className="gov-reveal bg-white border border-gray-200 rounded-xl shadow-card p-6 sm:p-8" style={{ borderTop: '3px solid #ED1C24' }}>
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#FF161F' }}>
+              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#ED1C24' }}>
                 Acompanhamento individual
               </span>
               <h2 className="mt-1 font-montserrat text-2xl font-bold text-gray-900">Minha Jornada</h2>
@@ -1007,7 +1007,7 @@ export default function Capacitacao() {
             </div>
             <Link
               to="/capacitacao/minha-jornada"
-              className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-[#FF161F] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-[#ED1C24] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
             >
               Acessar minha jornada
               <Icon className="h-4 w-4">
@@ -1029,7 +1029,7 @@ export default function Capacitacao() {
               <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90" aria-hidden="true">
                 <circle cx="60" cy="60" r={RING_R} fill="none" stroke="#E8EAF0" strokeWidth="12" />
                 <circle
-                  cx="60" cy="60" r={RING_R} fill="none" stroke="#FF161F" strokeWidth="12"
+                  cx="60" cy="60" r={RING_R} fill="none" stroke="#ED1C24" strokeWidth="12"
                   strokeLinecap="round" strokeDasharray={RING_C} strokeDashoffset={ringOffset}
                 />
               </svg>

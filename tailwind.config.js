@@ -4,13 +4,17 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Vermelho institucional do Governo de SP: #ED1C24 (Pantone 485 C),
+        // fiel ao manual da marca. Antes era #FF161F, mais saturado que o
+        // padrao GESP. Os tons 600/700 derivam do 500 nas mesmas proporcoes
+        // que a escala anterior usava.
         red: {
-          500: '#FF161F',
-          600: '#CC111A',
-          700: '#9E0D14',
+          500: '#ED1C24',
+          600: '#BE161D',
+          700: '#931116',
         },
         gov: {
-          red:        '#FF161F',
+          red:        '#ED1C24',
           blue:       '#034EA2',
           navy:       '#233254',
           'blue-mid': '#4297D3',

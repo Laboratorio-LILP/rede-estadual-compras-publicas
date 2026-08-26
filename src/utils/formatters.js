@@ -11,7 +11,7 @@ export function getAvatarColor(name) {
 // Paleta das tags — tons institucionais + apoio, com contraste suficiente
 // para texto branco quando a tag está selecionada.
 export const TAG_COLORS = [
-  '#034EA2', '#0B9247', '#FF161F', '#4297D3',
+  '#034EA2', '#0B9247', '#ED1C24', '#4297D3',
   '#233254', '#7C3AED', '#F97316', '#0891B2',
 ];
 

@@ -217,7 +217,7 @@ export default function MinhaJornada() {
         <>
           <section className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {[
-              { label: 'Progresso geral', value: `${stats.percentage}%`, color: '#FF161F' },
+              { label: 'Progresso geral', value: `${stats.percentage}%`, color: '#ED1C24' },
               { label: 'Cursos na jornada', value: stats.total, color: '#034EA2' },
               { label: 'Cursos concluídos', value: stats.completed, color: '#0B9247' },
               { label: 'Horas concluídas', value: `${stats.completedHours}h`, color: '#233254' },
@@ -274,7 +274,7 @@ export default function MinhaJornada() {
               </p>
               <Link
                 to="/capacitacao#cursos"
-                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#FF161F] px-5 py-2.5 text-sm font-semibold text-white"
+                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#ED1C24] px-5 py-2.5 text-sm font-semibold text-white"
               >
                 Explorar cursos
                 <Icon className="h-4 w-4">

@@ -139,7 +139,7 @@ export default function Home() {
         <div className="flex items-start gap-3">
           <div
             className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#FF161F14', color: '#FF161F' }}
+            style={{ backgroundColor: '#ED1C2414', color: '#ED1C24' }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -153,7 +153,7 @@ export default function Home() {
         <Link
           to="/new-topic"
           className="inline-flex items-center justify-center gap-1.5 text-sm text-white font-semibold px-4 py-2.5 rounded transition hover:opacity-90 flex-shrink-0"
-          style={{ backgroundColor: '#FF161F' }}
+          style={{ backgroundColor: '#ED1C24' }}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -176,7 +176,7 @@ export default function Home() {
                     ? 'text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
-                style={sort === opt.key ? { backgroundColor: '#FF161F' } : undefined}
+                style={sort === opt.key ? { backgroundColor: '#ED1C24' } : undefined}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                   {opt.icon}
@@ -382,7 +382,7 @@ export default function Home() {
                             ? 'text-white font-bold'
                             : 'border border-gray-200 text-gray-600 hover:bg-gray-100'
                         }`}
-                        style={page === item ? { backgroundColor: '#FF161F' } : undefined}
+                        style={page === item ? { backgroundColor: '#ED1C24' } : undefined}
                       >
                         {item}
                       </button>

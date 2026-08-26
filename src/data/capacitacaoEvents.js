@@ -54,7 +54,7 @@ export const CAPACITACAO_EVENTS = [
     instituicao: 'EGESP · RECPSP',
     local: 'São Paulo · SP',
     descricao: 'Formação intensiva sobre as atribuições e os desafios da atuação dos agentes de contratação.',
-    accent: '#FF161F',
+    accent: '#ED1C24',
   },
   {
     id: 'forum-contratacoes-2026',
@@ -65,7 +65,7 @@ export const CAPACITACAO_EVENTS = [
     instituicao: 'RECPSP',
     local: 'São Paulo · SP',
     descricao: 'Encontro para compartilhar experiências, tendências e boas práticas em contratações públicas.',
-    accent: '#FF161F',
+    accent: '#ED1C24',
   },
   {
     id: 'oficina-linguagem-simples-2026',
