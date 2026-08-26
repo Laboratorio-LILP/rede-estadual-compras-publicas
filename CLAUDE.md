@@ -53,7 +53,7 @@ Makefile no padrão das outras frentes (Docker é a via canônica desde 26/08/20
 
 - `make setup` — 1ª vez: valida o `.env` (falha claro sem `JWT_SECRET`), constrói a imagem e sobe.
 - `make up` / `down` / `restart` / `logs` / `ps` / `shell`.
-- `make test` — testes do front no host (requer Node 18+).
+- `make test` — testes do front **e da API** no host (requer Node 18+).
 - `make clean` — derruba e **APAGA o volume**: o banco do fórum inteiro se perde.
 
 Para mexer no front com hot reload, dev sem Docker — os scripts reais da `package.json`:
@@ -65,6 +65,8 @@ Para mexer no front com hot reload, dev sem Docker — os scripts reais da `pack
 | `npm start` | Sobe a **API**, não o React. É o comando de produção. |
 | `npm run build` | Gera o `build/` que o servidor serve. |
 | `npm test` | Roda os testes de `src/App.test.js` (5 casos reais). |
+| `npm run test:api` | Testes de API (`node:test`, `server/test/`) em banco temporário — não toca `server/forum.db`. |
+| `npm run lint` | ESLint (do react-scripts) em `src/` e `server/`. |
 
 **Em dev você precisa dos dois processos**, em terminais separados:
 
@@ -88,6 +90,7 @@ A variável é obrigatória: não existe campo `proxy` na `package.json`, e `src
 - **O volume `lilp-recpsp_dbdata` persiste por nome de projeto**, não por pasta — base limpa exige `make clean` (ou `docker volume rm lilp-recpsp_dbdata`). No volume vazio o seed roda de novo e recria `admin`/`admin123`.
 - **No container o banco fica em `/data/forum.db`** (`DB_PATH` do compose); em dev sem Docker, em `server/forum.db`. Os dois ambientes não compartilham dados.
 - **Dependência nova entra na seção certa.** O runtime da imagem instala só as `dependencies` (os 7 pacotes do servidor); todo o front (React, react-scripts, Tailwind) vive em `devDependencies` e só existe no estágio de build. Servidor → `dependencies`; front → `devDependencies`.
+- **Os testes de API não tocam o banco de dev.** `npm run test:api` roda cada arquivo de `server/test/` em processo próprio, com `DB_PATH` temporário e `SKIP_PLAYLIST_IMPORT=1`. O limitador de autenticação (20 tentativas/IP/15min) vale nos testes — economize logins; `server/test/helpers.js` faz cache de token por e-mail.
 - **Lock dessincronizado com o `npm ci` do build:** o npm local (v11 + wrapper allow-scripts) pode gravar um lock que o npm 10 do `node:22` rejeita (aconteceu em 26/08 — dedupe inválido de `yaml` herdado do lock original). Regenere com o npm do container: `docker run --rm -v "$PWD":/work -w /work node:22-bookworm-slim npm install --package-lock-only`.
 
 ## Divergências do padrão LILP (herdadas)
@@ -103,12 +106,12 @@ Estes pontos **não** seguem o que BDLP e PESCP já adotaram. Corrigi-los é tra
 | **Hospedagem** | Versão de teste em nuvem pública externa. | VM da SGGD atrás da borda, acesso por VPN (ADR-006). |
 | **Banco** | SQLite em arquivo — desde 26/08 num volume nomeado (sobrevive a rebuild), mas segue mono-instância. | Postgres em contêiner. |
 | **Empacotamento** | **Resolvida em 26/08:** compose `lilp-recpsp` + Makefile, loopback 8003, imagem em dois estágios. | Docker Compose + Makefile. |
-| **CI** | Não existe. | GitHub Actions com lint + testes nos PRs. |
+| **CI** | **Resolvida em 26/08:** `.github/workflows/ci.yml` roda `npm ci`, lint, testes (front + API) e build, em PR e na `main`. | GitHub Actions com lint + testes nos PRs. |
 | **Paleta** | `#FF161F` em `tailwind.config.js`. | GESP **`#ED1C24`** (Pantone 485 C, fiel ao manual). |
 | **Acessibilidade** | Sem auditoria. | eMAG 3.1 + WCAG 2.0 AA, auditado. |
 | **Licença** | Ausente. | MIT, com arquivo `LICENSE`. |
 
-Na importação nada foi alterado — o código chegou exatamente como o Eduardo entregou em 31/07/2026, com histórico e autoria preservados. Em 26/08/2026 a containerização tratou três linhas (Empacotamento, Origens CORS e o `JWT_SECRET` na via canônica); o restante segue aberto.
+Na importação nada foi alterado — o código chegou exatamente como o Eduardo entregou em 31/07/2026, com histórico e autoria preservados. Em 26/08/2026 a containerização tratou três linhas (Empacotamento, Origens CORS e o `JWT_SECRET` na via canônica) e a sessão do laço de verificação, no mesmo dia, fechou a linha de CI; o restante segue aberto. O placar vivo da frente é `docs/CHECKLIST-MODELO.md`.
 
 ## Flags de funcionalidade
 

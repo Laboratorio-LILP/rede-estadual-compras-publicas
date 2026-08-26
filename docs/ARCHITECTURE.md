@@ -48,10 +48,13 @@ baixo no boot**. Metade dele executa antes de a primeira rota ser registrada.
 4. **Schema** — `CREATE TABLE IF NOT EXISTS` de 18 tabelas
 5. **`ALTER TABLE` avulsos** em `try/catch` vazios (o substituto das migrations)
 6. **Seed**, guardado por "existe algum usuário com papel admin?"
-7. Importação das playlists padrão do YouTube (assíncrona, dispara no boot)
+7. Importação das playlists padrão do YouTube (assíncrona, dispara no boot;
+   `SKIP_PLAYLIST_IMPORT=1` pula — é o que os testes usam)
 8. Seed fixo de 14 cursos na tabela `resources`
 9. Correções de acentuação em categorias e tags de bancos antigos
 10. Middlewares → rotas → error handler → estáticos → rota curinga → `listen`
+    (só quando executado diretamente; sob `require`, o arquivo exporta o `app` —
+    é assim que os testes de API o carregam)
 
 Consequência prática: **inserir código na região errada não dá erro, dá
 comportamento silencioso**. Uma rota registrada depois da curinga nunca é
@@ -184,30 +187,34 @@ puro de usuário comum é publicado direto. A decisão registrada na apresentaç
 26/08 (Laís) é que **todo** tópico novo passe por curadoria prévia — o código
 ainda não faz isso. Ver `QUESTIONS.md`, pergunta 11.
 
-## 7. Exclusão em cascata é manual — e está incompleta
+## 7. Exclusão em cascata é manual
 
 As chaves estrangeiras foram declaradas **sem `ON DELETE`** (a única exceção é
 `user_course_progress`, com `ON DELETE CASCADE`). Como o boot liga
 `foreign_keys = ON`, apagar uma linha-pai com filhos **falha** com erro de
-restrição. Por isso cada exclusão limpa as dependências à mão.
+restrição. Por isso cada exclusão limpa as dependências à mão, dentro de
+transação: `DELETE /api/admin/users/:id` (nove tabelas), `DELETE /api/topics/:id`
+e `DELETE /api/posts/:id`.
 
-`DELETE /api/admin/users/:id` faz isso corretamente, dentro de uma transação de
-cerca de 80 linhas que percorre nove tabelas.
+As duas últimas tinham um defeito, **confirmado em execução e corrigido em
+26/08/2026** (a inferência de leitura registrada na v1.0 deste documento estava
+correta):
 
-**`DELETE /api/topics/:id` e `DELETE /api/posts/:id` não fazem.** Nenhum dos dois
-apaga `post_likes` e `post_dislikes` das respostas envolvidas, e nenhum dos dois
-roda em transação. O efeito esperado:
+- Reprodução, com teste escrito antes da correção: criar tópico → responder →
+  curtir a resposta → excluir o tópico devolvia **500**
+  (`FOREIGN KEY constraint failed`) e deixava o tópico **parcialmente
+  destruído** — tags e curtidas do tópico já apagadas; tópico, respostas e
+  curtidas de resposta de pé. Excluir uma resposta curtida falhava igual.
+- Correção conservadora: as duas rotas passaram a limpar `post_likes` e
+  `post_dislikes` e a rodar **em transação**, no padrão de
+  `DELETE /api/admin/users/:id`. Regressão coberta por
+  `server/test/exclusao.test.js`.
+- A saída estrutural — migrar as FKs para `ON DELETE CASCADE`, que elimina a
+  classe inteira de erro — mexe no schema e ficou como recomendação para o
+  ADR 0001 (decisão de banco; `docs/QUESTIONS.md`, pergunta 4).
 
-- excluir um tópico cujas respostas tenham qualquer curtida ou descurtida
-  interrompe a operação no `DELETE FROM posts` com erro de chave estrangeira,
-  devolve 500 pelo error handler global — e o tópico fica **parcialmente
-  destruído**: votos, opções de enquete, tags e curtidas já foram apagados antes.
-- excluir uma resposta curtida falha do mesmo jeito.
-
-> Estatuto: **inferência de alta confiança a partir da leitura do código**
-> (`foreign_keys = ON` + FK sem `ON DELETE` + ordem das operações). Não foi
-> executado nesta sessão. Confirmar é um teste de dois minutos: criar tópico,
-> responder, curtir a resposta, excluir o tópico.
+`DELETE /api/categories/:id` continua sem limpeza nenhuma (tópicos e
+`user_categories` presos ou órfãos) — ver `MODELO_DE_DADOS.md`, seção 5.
 
 **Regra para quem for mexer aqui:** toda tabela nova que referencie `users`,
 `topics` ou `posts` precisa entrar nas três rotinas de exclusão — ou, melhor,
@@ -285,10 +292,39 @@ Estas não são "melhorias futuras": elas mudam como o código deve ser escrito 
 | `viewedTopics` é um `Map` em memória | a janela de 30 min para contagem de visualizações se perde a cada reinício e não funciona com mais de uma instância |
 | SQLite mono-instância | impede rodar duas réplicas; decisão sobre Postgres pendente (ADR a escrever) |
 | CSP desativada | qualquer trabalho de segurança de front esbarra nisso primeiro |
-| Sem CI | nada valida lint nem testes num PR; a verificação é manual |
-| 5 testes de front | a rede de proteção cobre termos de uso, comunicado, calendário, rolagem e progresso — nada de API |
+| Testes cobrem o crítico, não o todo | 5 de front + 23 de API (seção 12); mensagens, notificações, votação, busca e recursos seguem sem cobertura |
 
-## 12. Manutenção deste documento
+## 12. Laço de verificação
+
+Instalado em 26/08/2026. O comando que responde "quebrou?" é:
+
+```bash
+make test        # front (react-scripts) + API (node:test)
+```
+
+- **Executor da API: `node:test`**, embutido no Node 18+. Escolha deliberada: o
+  runtime da imagem Docker instala só as `dependencies` (os 7 pacotes do
+  servidor), então qualquer executor externo teria de viver em `devDependencies`
+  e nunca existir em produção — o `node:test` zera a dependência e o risco de
+  dessincronizar o lock (que já rejeitou `npm ci` uma vez, ver `CLAUDE.md`).
+  As requisições usam o `fetch` global do Node contra `app.listen(0)`.
+- **Pré-requisito no servidor:** `server/index.js` exporta o `app` e só chama
+  `listen` quando executado diretamente (`require.main === module`);
+  `SKIP_PLAYLIST_IMPORT=1` pula a importação de playlists no boot.
+- **Isolamento:** cada arquivo de teste roda em processo próprio (padrão do
+  `node --test`) com `DB_PATH` apontando para um arquivo temporário — o seed
+  roda limpo e nada toca `server/forum.db` nem o volume do container.
+- **Orçamento de autenticação:** o limitador permite 20 tentativas por IP a
+  cada 15 minutos e vale nos testes; `server/test/helpers.js` faz cache de
+  token por e-mail. Arquivo de teste novo deve economizar logins.
+- **Cobertura (23 testes em `server/test/`):** autenticação (aceite de termos,
+  banimento, papel relido a cada requisição), visibilidade/moderação nos quatro
+  pontos onde a regra está repetida (seção 6), exclusão em cascata (seção 7) e
+  autorização admin × moderador × usuário.
+- **CI:** `.github/workflows/ci.yml` roda `npm ci`, lint, as duas suítes e o
+  build, em PR e na `main`, com Node 22 (mesma major da imagem Docker).
+
+## 13. Manutenção deste documento
 
 Atualize quando mudar a **estrutura**, não a cada funcionalidade: nova seção no
 `server/index.js`, nova tabela, mudança de papéis ou de regra de visibilidade,

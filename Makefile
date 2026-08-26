@@ -41,8 +41,9 @@ ps: ## Estado do stack
 shell: ## Shell dentro do container
 	$(COMPOSE) exec web bash
 
-test: ## Roda os testes do front (no host; requer Node 18+)
+test: ## Roda os testes do front e da API (no host; requer Node 18+)
 	CI=true npm test
+	npm run test:api
 
 clean: ## Derruba e APAGA o volume — o banco do fórum é perdido
 	$(COMPOSE) down -v

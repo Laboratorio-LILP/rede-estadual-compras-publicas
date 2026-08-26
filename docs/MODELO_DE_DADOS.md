@@ -197,15 +197,15 @@ erro de restrição, e cada exclusão precisa limpar as dependências à mão.
 | Rota | Limpa | Falta |
 |---|---|---|
 | `DELETE /api/admin/users/:id` | 9 tabelas, em transação | — (correto) |
-| `DELETE /api/topics/:id` | `poll_votes`, `poll_options`, `topic_tags`, `likes`, `posts` | **`post_likes`, `post_dislikes`**; sem transação |
-| `DELETE /api/posts/:id` | nada | **`post_likes`, `post_dislikes`** |
+| `DELETE /api/topics/:id` | `post_likes`, `post_dislikes`, `poll_votes`, `poll_options`, `topic_tags`, `likes`, `posts`, em transação | — (corrigida em 26/08/2026) |
+| `DELETE /api/posts/:id` | `post_likes`, `post_dislikes`, em transação | — (corrigida em 26/08/2026) |
 | `DELETE /api/categories/:id` | nada | tópicos e `user_categories` ficam órfãos ou impedem a exclusão |
 
-Consequência esperada: excluir um tópico cujas respostas tenham curtidas
-interrompe a operação no `DELETE FROM posts`, devolve 500 e deixa o tópico
-parcialmente destruído (tags, curtidas e enquete já apagadas). Ver
-`ARCHITECTURE.md`, seção 7 — inclusive quanto ao estatuto dessa afirmação:
-é inferência de leitura, ainda não verificada em execução.
+O defeito que as rotas de tópico e de resposta tinham (curtidas de resposta não
+eram limpas: a exclusão falhava com `FOREIGN KEY constraint failed`, devolvia
+500 e deixava o tópico parcialmente destruído) foi **confirmado em execução e
+corrigido em 26/08/2026** — ver `ARCHITECTURE.md`, seção 7, e o teste de
+regressão em `server/test/exclusao.test.js`.
 
 **Regra ao criar tabela nova que referencie `users`, `topics` ou `posts`:**
 declare `ON DELETE CASCADE` no schema e, para o banco já existente, acrescente
