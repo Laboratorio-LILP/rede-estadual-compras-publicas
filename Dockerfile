@@ -12,6 +12,9 @@ RUN npm ci
 COPY postcss.config.js tailwind.config.js craco.config.js ./
 COPY public ./public
 COPY src ./src
+# Sem o runtime chunk embutido no index.html, a CSP do servidor pode manter
+# script-src 'self' — nenhum <script> inline precisa ser liberado.
+ENV INLINE_RUNTIME_CHUNK=false
 RUN npm run build
 
 # ---------- estágio 2: runtime ----------

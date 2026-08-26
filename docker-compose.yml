@@ -10,6 +10,12 @@ services:
       DB_PATH: /data/forum.db
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env (sem fallback — padrão LILP)}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      # Sem ADMIN_PASSWORD o servidor sorteia a senha do admin inicial e a
+      # imprime uma única vez no log do boot (`make logs`).
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Dados de demonstração ficam fora por padrão em produção.
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-0}
+      TRUST_PROXY: ${TRUST_PROXY:-loopback}
       # Se mudar RECPSP_PORT, ajuste ALLOWED_ORIGINS no .env também.
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8003,http://127.0.0.1:8003}
     ports:

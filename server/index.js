@@ -9,11 +9,38 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-if (!process.env.JWT_SECRET) console.warn('AVISO: JWT_SECRET não definido. Usando fallback inseguro. Defina JWT_SECRET nas variáveis de ambiente.');
-if (!process.env.YOUTUBE_API_KEY) console.warn('AVISO: YOUTUBE_API_KEY não definido. Importação de playlists pode falhar.');
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-change-in-production';
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || '';
+// Segredo do JWT: em producao falha claro (padrao LILP — segredo por ambiente,
+// sem fallback). Fora de producao gera um segredo efemero por processo, para o
+// repositorio nao publicar nenhuma constante que sirva para forjar token.
+// Efeito colateral aceito: reiniciar o servidor invalida as sessoes abertas.
+function resolveJwtSecret() {
+  const fromEnv = process.env.JWT_SECRET;
+  if (fromEnv) return fromEnv;
+  if (IS_PRODUCTION) {
+    console.error('ERRO: JWT_SECRET nao definido. Defina a variavel antes de subir em producao.');
+    console.error('      Gere um valor com: openssl rand -hex 32');
+    process.exit(1);
+  }
+  console.warn('AVISO: JWT_SECRET nao definido. Usando segredo efemero — as sessoes caem a cada reinicio.');
+  return require('crypto').randomBytes(32).toString('hex');
+}
+const JWT_SECRET = resolveJwtSecret();
+
+// Chave da YouTube Data API. Vazia e um estado valido: sem ela a importacao de
+// playlists fica desligada e diz isso, em vez de chamar a API sem credencial e
+// repassar o erro cru do Google.
+const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY || '').trim();
+const YOUTUBE_ENABLED = YOUTUBE_API_KEY.length > 0;
+if (!YOUTUBE_ENABLED) {
+  console.warn('AVISO: YOUTUBE_API_KEY nao definido. A importacao de playlists fica desativada.');
+}
+
+// Atras de proxy reverso, req.ip precisa vir do X-Forwarded-For: sem isto o
+// rate limit de autenticacao conta todos os usuarios como um IP so e a
+// contagem de visualizacoes deduplica visitantes distintos.
+app.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'forum.db');
 const db = new Database(dbPath);
@@ -27,6 +54,115 @@ db.function('normalize_text', (text) => {
   if (!text) return '';
   return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 });
+
+// Limites de entrada, num lugar so. Antes o cadastro validava e-mail e senha
+// mas a edicao de perfil nao validava nada — as duas rotas gravam a mesma
+// tabela e agora respondem as mesmas regras.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD = 6;
+const MAX_USERNAME = 60;
+const MAX_LOCATION = 120;
+const MAX_ORGANIZATION = 160;
+const MAX_BIO = 1000;
+const MAX_TITLE = 200;
+const MAX_CONTENT = 50000;
+const MAX_QUESTION = 100;
+const MAX_MESSAGE = 5000;
+
+// =================== EXCLUSAO EM CASCATA ===================
+// O schema declara as FK sem ON DELETE CASCADE, e o boot liga
+// `PRAGMA foreign_keys = ON`. A limpeza portanto e responsabilidade do codigo:
+// filho antes de pai, sempre. Antes cada rota repetia essa ordem por conta
+// propria e nenhuma delas limpava post_likes/post_dislikes — apagar um topico
+// cujo post tivesse uma curtida estourava a FK no meio da sequencia, deixando
+// o topico vivo mas ja sem tags nem curtidas. Aqui a ordem existe uma vez so,
+// e quem chama envolve tudo numa transacao.
+
+// Remove as reacoes dos posts informados. Passo que faltava nas tres rotas.
+function limparReacoesDosPosts(postIds) {
+  if (postIds.length === 0) return;
+  const delLikes = db.prepare('DELETE FROM post_likes WHERE post_id = ?');
+  const delDislikes = db.prepare('DELETE FROM post_dislikes WHERE post_id = ?');
+  for (const postId of postIds) {
+    delLikes.run(postId);
+    delDislikes.run(postId);
+  }
+}
+
+// Apaga um topico e tudo que depende dele. NAO abre transacao: quem chama
+// decide o escopo, para que apagar um usuario com 30 topicos siga atomico.
+function apagarTopicoEmCascata(topicId) {
+  const postIds = db.prepare('SELECT id FROM posts WHERE topic_id = ?').all(topicId).map((p) => p.id);
+  limparReacoesDosPosts(postIds);
+  db.prepare('DELETE FROM poll_votes WHERE topic_id = ?').run(topicId);
+  db.prepare('DELETE FROM poll_options WHERE topic_id = ?').run(topicId);
+  db.prepare('DELETE FROM topic_tags WHERE topic_id = ?').run(topicId);
+  db.prepare('DELETE FROM likes WHERE topic_id = ?').run(topicId);
+  db.prepare('DELETE FROM posts WHERE topic_id = ?').run(topicId);
+  // notifications nao tem FK, mas reference_id apontando para topico apagado
+  // faz o front navegar para um 404.
+  db.prepare("DELETE FROM notifications WHERE type = 'moderation' AND reference_id = ?").run(topicId);
+  db.prepare('DELETE FROM topics WHERE id = ?').run(topicId);
+}
+
+// Apaga um post e suas reacoes.
+function apagarPostEmCascata(postId) {
+  limparReacoesDosPosts([postId]);
+  db.prepare('DELETE FROM posts WHERE id = ?').run(postId);
+}
+
+// =================== CONTA SENTINELA ===================
+// Excluir uma conta nao pode apagar a discussao publica que outros orgaos
+// construiram em cima dela. Topicos e respostas sao reatribuidos a esta conta;
+// o que e pessoal (mensagens, notificacoes, interesses, reacoes) e eliminado.
+const EMAIL_USUARIO_REMOVIDO = 'usuario-removido@recpsp.invalid';
+const NOME_USUARIO_REMOVIDO = 'Usuário removido';
+
+// Sentinela e criada sob demanda, banida (nao autentica) e com senha aleatoria
+// que ninguem conhece — nem quem le o repositorio.
+function obterUsuarioRemovido() {
+  const existente = db.prepare('SELECT id FROM users WHERE email = ?').get(EMAIL_USUARIO_REMOVIDO);
+  if (existente) return existente.id;
+  const senhaInutilizavel = bcrypt.hashSync(require('crypto').randomBytes(32).toString('hex'), 10);
+  const criado = db.prepare(`
+    INSERT INTO users (username, email, password, role, banned, bio)
+    VALUES (?, ?, ?, 'user', 1, ?)
+  `).run(
+    NOME_USUARIO_REMOVIDO,
+    EMAIL_USUARIO_REMOVIDO,
+    senhaInutilizavel,
+    'Conta removida. As publicações abaixo foram mantidas para preservar o histórico das discussões.',
+  );
+  return Number(criado.lastInsertRowid);
+}
+
+// Remove a conta preservando o conteudo publico. NAO abre transacao: quem
+// chama define o escopo.
+function anonimizarERemoverUsuario(userId) {
+  const sentinelaId = obterUsuarioRemovido();
+
+  // --- dado pessoal: sai ---
+  db.prepare('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?').run(userId, userId);
+  db.prepare('DELETE FROM notifications WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM user_categories WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM user_specialties WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM specialist_requests WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM user_course_progress WHERE user_id = ?').run(userId);
+  // Reacoes revelam o que a pessoa leu e endossou: tambem sao dado pessoal.
+  db.prepare('DELETE FROM likes WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM post_likes WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM post_dislikes WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM poll_votes WHERE user_id = ?').run(userId);
+  // Especializacoes concedidas por esta conta perdem o concedente, nao o efeito.
+  db.prepare('UPDATE user_specialties SET granted_by = NULL WHERE granted_by = ?').run(userId);
+  db.prepare('UPDATE specialist_requests SET reviewed_by = NULL WHERE reviewed_by = ?').run(userId);
+
+  // --- conteudo publico: fica, sem autoria ---
+  db.prepare('UPDATE topics SET user_id = ? WHERE user_id = ?').run(sentinelaId, userId);
+  db.prepare('UPDATE posts SET user_id = ? WHERE user_id = ?').run(sentinelaId, userId);
+
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+}
 
 function capitalizeInitial(value) {
   const text = String(value ?? '').trim();
@@ -256,9 +392,32 @@ db.exec(`
 `);
 
 // =================== SEED ===================
+// Senha do admin inicial. Em producao nunca vem do codigo: ou o operador
+// define ADMIN_PASSWORD, ou o servidor sorteia uma e imprime uma unica vez no
+// log do boot. Fora de producao mantem o padrao conhecido, para nao quebrar
+// desenvolvimento nem os testes de API.
+function resolveAdminPassword() {
+  if (process.env.ADMIN_PASSWORD) return { senha: process.env.ADMIN_PASSWORD, origem: 'env' };
+  if (IS_PRODUCTION) {
+    return { senha: require('crypto').randomBytes(12).toString('base64url'), origem: 'sorteada' };
+  }
+  return { senha: 'admin123', origem: 'padrao-de-desenvolvimento' };
+}
+
 const adminExists = db.prepare('SELECT id FROM users WHERE role = ?').get('admin');
 if (!adminExists) {
-  const hashedPassword = bcrypt.hashSync('admin123', 10);
+  const { senha: adminPassword, origem } = resolveAdminPassword();
+  const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+  if (origem === 'sorteada') {
+    console.log('='.repeat(72));
+    console.log('SENHA DO ADMIN INICIAL (aparece uma unica vez, anote agora):');
+    console.log(`   usuario: admin@forum.com`);
+    console.log(`   senha  : ${adminPassword}`);
+    console.log('   Troque-a no primeiro acesso, ou defina ADMIN_PASSWORD no ambiente.');
+    console.log('='.repeat(72));
+  } else if (origem === 'padrao-de-desenvolvimento') {
+    console.warn('AVISO: admin criado com a senha padrao de desenvolvimento. Nao use este banco em producao.');
+  }
   db.prepare('INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)').run('admin', 'admin@forum.com', hashedPassword, 'admin');
 
   const cats = [
@@ -287,8 +446,16 @@ if (!adminExists) {
   console.log('Categorias e tags iniciais criadas');
 
   // =================== DADOS INICIAIS DO FÓRUM ===================
-  {
-  const testPass = bcrypt.hashSync('teste123', 10);
+  // Conteudo de demonstracao: 5 contas com senha conhecida e 15 topicos
+  // ficticios. Util em desenvolvimento, inaceitavel numa base real — em
+  // producao so entra se SEED_DEMO_DATA=1 for pedido explicitamente.
+  const semearDemo = process.env.SEED_DEMO_DATA === '1'
+    || (process.env.SEED_DEMO_DATA !== '0' && !IS_PRODUCTION);
+  if (!semearDemo) {
+    console.log('Dados de demonstracao nao semeados (producao). Use SEED_DEMO_DATA=1 para forcar.');
+  }
+  if (semearDemo) {
+  const testPass = bcrypt.hashSync(process.env.DEMO_PASSWORD || 'teste123', 10);
   const testUsers = [
     ['MariaLicitacao', 'maria@teste.com', testPass, 'user', 'SP', 'Prefeitura de Sao Paulo'],
     ['JoaoContratos', 'joao@teste.com', testPass, 'user', 'RJ', 'Tribunal de Contas do Estado'],
@@ -476,36 +643,93 @@ const defaultPlaylists = [
   'PLU90JTu_sKGMcBh4EwzWwrFjpP1caBYBz',
 ];
 
+// Erro de importacao que ja carrega uma mensagem segura para o cliente: a
+// resposta bruta do Google pode ecoar a requisicao, e a requisicao carrega a
+// credencial. Nada vindo da API externa e repassado sem passar por aqui.
+class YoutubeImportError extends Error {
+  constructor(mensagemPublica, causa) {
+    super(mensagemPublica);
+    this.name = 'YoutubeImportError';
+    this.causa = causa;
+  }
+}
+
+// Ponto unico de contato com a YouTube Data API.
+// A chave vai no cabecalho X-goog-api-key, nunca na query string: URL entra em
+// log de proxy, em stack trace e em mensagem de erro — cabecalho, nao.
+async function fetchPlaylistPage(playlistId, pageToken) {
+  if (!YOUTUBE_ENABLED) {
+    throw new YoutubeImportError('Importacao do YouTube desativada: defina YOUTUBE_API_KEY no ambiente do servidor.');
+  }
+  const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
+  url.searchParams.set('part', 'snippet');
+  url.searchParams.set('maxResults', '50');
+  url.searchParams.set('playlistId', playlistId);
+  if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+  let response;
+  try {
+    response = await fetch(url, { headers: { 'X-goog-api-key': YOUTUBE_API_KEY } });
+  } catch (err) {
+    throw new YoutubeImportError('Nao foi possivel contatar a API do YouTube.', err);
+  }
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data || data.error) {
+    // O detalhe do Google vai para o log do servidor; o cliente recebe o codigo.
+    const detalhe = data?.error?.message || `HTTP ${response.status}`;
+    throw new YoutubeImportError(
+      `A API do YouTube recusou a consulta a playlist ${playlistId} (HTTP ${response.status}).`,
+      new Error(detalhe),
+    );
+  }
+  return data;
+}
+
+// Percorre todas as paginas de uma playlist e devolve os videos publicos.
+async function fetchPlaylistVideos(playlistId) {
+  const videos = [];
+  let pageToken = '';
+  do {
+    const data = await fetchPlaylistPage(playlistId, pageToken);
+    for (const item of data.items || []) {
+      const title = item?.snippet?.title;
+      const videoId = item?.snippet?.resourceId?.videoId;
+      if (!title || !videoId) continue;
+      if (title === 'Private video' || title === 'Deleted video') continue;
+      videos.push({ title, url: `https://www.youtube.com/watch?v=${videoId}` });
+    }
+    pageToken = data.nextPageToken || '';
+  } while (pageToken);
+  return videos;
+}
+
 async function importDefaultPlaylists() {
-  const API_KEY = YOUTUBE_API_KEY;
+  if (!YOUTUBE_ENABLED) return;
   const existingCount = db.prepare('SELECT COUNT(*) as c FROM resources').get().c;
   if (existingCount > 0) return; // já importado
   const insert = db.prepare('INSERT OR IGNORE INTO resources (title, url, type, source, playlist_id) VALUES (?, ?, ?, ?, ?)');
+  let importados = 0;
   for (const playlistId of defaultPlaylists) {
     try {
-      let nextPageToken = '';
-      do {
-        const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${API_KEY}${nextPageToken ? '&pageToken=' + nextPageToken : ''}`;
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.error) { console.log(`[playlists] Erro na playlist ${playlistId}:`, data.error.message); break; }
-        for (const item of (data.items || [])) {
-          const title = item.snippet.title;
-          if (title === 'Private video' || title === 'Deleted video') continue;
-          const videoId = item.snippet.resourceId.videoId;
-          const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-          const existing = db.prepare('SELECT id FROM resources WHERE url = ?').get(videoUrl);
-          if (!existing) insert.run(title, videoUrl, 'video', 'youtube', playlistId);
-        }
-        nextPageToken = data.nextPageToken || '';
-      } while (nextPageToken);
-    } catch (err) { console.log(`[playlists] Erro ao importar ${playlistId}:`, err.message); }
+      for (const video of await fetchPlaylistVideos(playlistId)) {
+        const resultado = insert.run(video.title, video.url, 'video', 'youtube', playlistId);
+        if (resultado.changes > 0) importados++;
+      }
+    } catch (err) {
+      console.warn(`[playlists] Falha ao importar ${playlistId}: ${err.message}`);
+      if (err.causa) console.warn(`[playlists]   detalhe: ${err.causa.message}`);
+    }
   }
-  const total = db.prepare('SELECT COUNT(*) as c FROM resources').get().c;
-  console.log(`[playlists] ${total} vídeos importados de ${defaultPlaylists.length} playlists`);
+  // Conta o que esta importacao inseriu — antes o log somava a tabela inteira
+  // (incluindo os cursos do seed) e anunciava videos que nunca chegaram.
+  console.log(`[playlists] ${importados} video(s) importado(s) de ${defaultPlaylists.length} playlists`);
 }
 
-importDefaultPlaylists();
+// Dispara sem bloquear o boot; a falha vira log, nunca rejeicao nao tratada.
+importDefaultPlaylists().catch((err) => {
+  console.warn('[playlists] Importacao inicial falhou:', err.message);
+});
 
 // =================== CURSOS DE CAPACITAÇÃO (seed fixo) ===================
 const cursos = [
@@ -575,12 +799,22 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
       'http://localhost:3000',
       'http://localhost:3001',
     ];
+// Origem recusada e decisao de politica, nao defeito do servidor: sinaliza com
+// uma marca no erro para o handler global devolver 403 em vez de 500.
+class CorsBloqueadoError extends Error {
+  constructor(origin) {
+    super(`Origem nao permitida: ${origin}`);
+    this.name = 'CorsBloqueadoError';
+    this.status = 403;
+  }
+}
+
 app.use(cors({
   origin: function(origin, callback) {
     // Permitir requests sem origin (mobile apps, curl, server-side)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    callback(new Error('Bloqueado pelo CORS'));
+    callback(new CorsBloqueadoError(origin));
   },
   credentials: true,
 }));
@@ -589,8 +823,38 @@ app.use(express.json({ limit: '5mb' }));
 const authUserByIdStmt = db.prepare('SELECT id, username, role, banned FROM users WHERE id = ?');
 
 // =================== SECURITY HEADERS ===================
+// Content-Security-Policy estrita (padrao LILP). Estava desativada inteira
+// "para permitir inline scripts do React": o build do CRA embute o runtime
+// chunk no index.html, e isso exigiria 'unsafe-inline' em script-src — o que
+// anula a protecao. A saida e desligar esse inline no build
+// (INLINE_RUNTIME_CHUNK=false no Dockerfile), assim script-src 'self' basta.
 app.use(helmet({
-  contentSecurityPolicy: false, // desativado para permitir inline scripts do React
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      'default-src': ["'self'"],
+      // Sem 'unsafe-inline' e sem 'unsafe-eval': todo script vem de arquivo.
+      'script-src': ["'self'"],
+      // React escreve o atributo style dos componentes; Tailwind entra por CSS
+      // externo. O atributo inline exige 'unsafe-inline' aqui — risco baixo,
+      // porque CSS nao executa codigo e script-src continua fechado.
+      // fonts.googleapis.com serve a folha da Montserrat, importada em
+      // src/index.css; os arquivos .woff2 vem de fonts.gstatic.com.
+      // Pendencia registrada: hospedar a fonte no proprio servidor evita que
+      // cada visitante do forum faca requisicao ao Google.
+      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      'img-src': ["'self'", 'data:', 'https:'],
+      'font-src': ["'self'", 'data:', 'https://fonts.gstatic.com'],
+      'connect-src': ["'self'"],
+      // Videos de capacitacao sao embutidos destes players.
+      'frame-src': ['https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
+      'object-src': ["'none'"],
+      'base-uri': ["'self'"],
+      'form-action': ["'self'"],
+      'frame-ancestors': ["'none'"],
+      'upgrade-insecure-requests': [],
+    },
+  },
   crossOriginEmbedderPolicy: false, // permitir embeds do YouTube
 }));
 
@@ -657,9 +921,20 @@ function adminOnly(req, res, next) {
 app.post('/api/auth/register', authLimiter, (req, res) => {
   const { username, email, password, organization, location, category_ids, accept_terms } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Email inválido' });
-  if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+  if (typeof username !== 'string' || username.trim().length > MAX_USERNAME) {
+    return res.status(400).json({ error: `Nome de usuário deve ter no máximo ${MAX_USERNAME} caracteres` });
+  }
+  if (!EMAIL_REGEX.test(String(email))) return res.status(400).json({ error: 'Email inválido' });
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
+    return res.status(400).json({ error: `Senha deve ter pelo menos ${MIN_PASSWORD} caracteres` });
+  }
   if (!accept_terms) return res.status(400).json({ error: 'É necessário aceitar os Termos de Uso para criar uma conta' });
+  // A identidade da conta sentinela e reservada: se alguem a registrasse,
+  // passaria a assinar todo o conteudo de contas ja removidas.
+  if (String(email).trim().toLowerCase() === EMAIL_USUARIO_REMOVIDO
+      || username.trim().toLowerCase() === NOME_USUARIO_REMOVIDO.toLowerCase()) {
+    return res.status(400).json({ error: 'Nome de usuario ou email ja em uso' });
+  }
   try {
     const hashed = bcrypt.hashSync(password, 10);
     const result = db.prepare(`INSERT INTO users (username, email, password, organization, location, terms_accepted_at)
@@ -740,21 +1015,56 @@ app.post('/api/auth/forum-notice/accept', auth, (req, res) => {
 
 app.put('/api/auth/profile', auth, (req, res) => {
   const { username, email, password, location, organization, bio } = req.body;
-  try {
-    if (username) db.prepare('UPDATE users SET username = ? WHERE id = ?').run(username, req.user.id);
-    if (email) db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, req.user.id);
-    if (password && password.length >= 6) {
-      const hashed = bcrypt.hashSync(password, 10);
-      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, req.user.id);
+
+  // As mesmas regras do cadastro. Antes este endpoint nao validava nada: dava
+  // para gravar e-mail sem formato valido, e senha com menos de 6 caracteres
+  // era descartada em silencio — a resposta vinha 200 e a senha nao mudava.
+  if (username !== undefined) {
+    if (typeof username !== 'string' || !username.trim()) {
+      return res.status(400).json({ error: 'Nome de usuário não pode ficar vazio' });
     }
-    if (location !== undefined) db.prepare('UPDATE users SET location = ? WHERE id = ?').run(location, req.user.id);
-    if (organization !== undefined) db.prepare('UPDATE users SET organization = ? WHERE id = ?').run(organization, req.user.id);
-    if (bio !== undefined) db.prepare('UPDATE users SET bio = ? WHERE id = ?').run(bio, req.user.id);
+    if (username.trim().length > MAX_USERNAME) {
+      return res.status(400).json({ error: `Nome de usuário deve ter no máximo ${MAX_USERNAME} caracteres` });
+    }
+  }
+  if (email !== undefined && !EMAIL_REGEX.test(String(email))) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
+  if (password !== undefined) {
+    if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
+      return res.status(400).json({ error: `Senha deve ter pelo menos ${MIN_PASSWORD} caracteres` });
+    }
+  }
+  for (const [campo, valor, limite] of [
+    ['Localidade', location, MAX_LOCATION],
+    ['Organização', organization, MAX_ORGANIZATION],
+    ['Bio', bio, MAX_BIO],
+  ]) {
+    if (valor !== undefined && String(valor).length > limite) {
+      return res.status(400).json({ error: `${campo} deve ter no máximo ${limite} caracteres` });
+    }
+  }
+
+  try {
+    // Uma transacao: ou o perfil inteiro muda, ou nada muda. Antes cada campo
+    // era um UPDATE solto — se o e-mail colidisse, o nome ja tinha sido gravado.
+    const salvar = db.transaction(() => {
+      if (username !== undefined) db.prepare('UPDATE users SET username = ? WHERE id = ?').run(username.trim(), req.user.id);
+      if (email !== undefined) db.prepare('UPDATE users SET email = ? WHERE id = ?').run(String(email).trim(), req.user.id);
+      if (password !== undefined) {
+        db.prepare('UPDATE users SET password = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), req.user.id);
+      }
+      if (location !== undefined) db.prepare('UPDATE users SET location = ? WHERE id = ?').run(location, req.user.id);
+      if (organization !== undefined) db.prepare('UPDATE users SET organization = ? WHERE id = ?').run(organization, req.user.id);
+      if (bio !== undefined) db.prepare('UPDATE users SET bio = ? WHERE id = ?').run(bio, req.user.id);
+    });
+    salvar();
 
     const user = db.prepare('SELECT id, username, email, role, location, organization, bio FROM users WHERE id = ?').get(req.user.id);
     res.json(user);
   } catch (err) {
     if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Nome ou email ja em uso' });
+    console.error('Erro ao atualizar perfil:', err);
     res.status(500).json({ error: 'Erro ao atualizar perfil' });
   }
 });
@@ -914,7 +1224,10 @@ app.get('/api/users/:id', (req, res) => {
 app.post('/api/messages', auth, (req, res) => {
   const { receiver_id, content } = req.body;
   const receiverId = Number(receiver_id);
-  if (!Number.isInteger(receiverId) || !content || !content.trim()) return res.status(400).json({ error: 'Destinatario e conteudo obrigatorios' });
+  if (!Number.isInteger(receiverId) || typeof content !== 'string' || !content.trim()) {
+    return res.status(400).json({ error: 'Destinatario e conteudo obrigatorios' });
+  }
+  if (content.length > MAX_MESSAGE) return res.status(400).json({ error: `Mensagem deve ter no máximo ${MAX_MESSAGE} caracteres` });
   if (receiverId === req.user.id) return res.status(400).json({ error: 'Nao e possivel enviar mensagem para si mesmo' });
   const receiver = db.prepare('SELECT id FROM users WHERE id = ?').get(receiverId);
   if (!receiver) return res.status(404).json({ error: 'Destinatario nao encontrado' });
@@ -1023,8 +1336,33 @@ app.put('/api/categories/:id', auth, adminOnly, (req, res) => {
 });
 
 app.delete('/api/categories/:id', auth, adminOnly, (req, res) => {
-  db.prepare('DELETE FROM categories WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  const categoria = db.prepare('SELECT id, name FROM categories WHERE id = ?').get(req.params.id);
+  if (!categoria) return res.status(404).json({ error: 'Tema nao encontrado' });
+
+  // Apagar tema em uso violava a FK de topics e virava "Erro interno do
+  // servidor" — o admin nao tinha como saber que o problema era esse.
+  // Recusar e explicar e melhor que apagar discussao junto com o tema.
+  const topicos = db.prepare('SELECT COUNT(*) as c FROM topics WHERE category_id = ?').get(req.params.id).c;
+  if (topicos > 0) {
+    return res.status(409).json({
+      error: `Não é possível excluir "${categoria.name}": há ${topicos} tópico(s) neste tema. Mova ou exclua os tópicos primeiro.`,
+    });
+  }
+
+  try {
+    db.transaction(() => {
+      // Vinculos sem conteudo proprio saem junto: interesse declarado e
+      // designacao de especialista existem apenas em funcao do tema.
+      db.prepare('DELETE FROM user_categories WHERE category_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM user_specialties WHERE category_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM specialist_requests WHERE category_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM categories WHERE id = ?').run(req.params.id);
+    })();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro ao excluir tema:', err);
+    res.status(500).json({ error: 'Erro ao excluir tema' });
+  }
 });
 
 // =================== TAGS ===================
@@ -1169,14 +1507,17 @@ app.post('/api/topics', auth, (req, res) => {
   const { title, category_id, content, tags, type, poll_options, image_url, video_url } = req.body;
   const normalizedTitle = capitalizeInitial(title);
   if (!normalizedTitle || !category_id || !content) return res.status(400).json({ error: 'Titulo, categoria e conteudo obrigatorios' });
-  if (normalizedTitle.length > 200) return res.status(400).json({ error: 'Título deve ter no máximo 200 caracteres' });
-  if (content.length > 50000) return res.status(400).json({ error: 'Conteúdo muito longo' });
+  // typeof antes de .length: um content nao-string fazia a comparacao virar
+  // NaN > N (sempre falso) e o limite era ignorado sem ninguem perceber.
+  if (typeof content !== 'string') return res.status(400).json({ error: 'Conteúdo deve ser texto' });
+  if (normalizedTitle.length > MAX_TITLE) return res.status(400).json({ error: `Título deve ter no máximo ${MAX_TITLE} caracteres` });
+  if (content.length > MAX_CONTENT) return res.status(400).json({ error: 'Conteúdo muito longo' });
 
   const user = db.prepare('SELECT banned FROM users WHERE id = ?').get(req.user.id);
   if (user?.banned) return res.status(403).json({ error: 'Sua conta foi banida' });
 
   // Validacoes por tipo
-  if (type === 'question' && content.length > 100) return res.status(400).json({ error: 'Pergunta deve ter no maximo 100 caracteres' });
+  if (type === 'question' && content.length > MAX_QUESTION) return res.status(400).json({ error: `Pergunta deve ter no maximo ${MAX_QUESTION} caracteres` });
   if (type === 'poll' && (!poll_options || !Array.isArray(poll_options) || poll_options.filter(o => o.trim()).length < 2)) {
     return res.status(400).json({ error: 'Votacao precisa de pelo menos 2 alternativas' });
   }
@@ -1244,13 +1585,16 @@ app.delete('/api/topics/:id', auth, (req, res) => {
   const topic = db.prepare('SELECT user_id FROM topics WHERE id = ?').get(req.params.id);
   if (!topic) return res.status(404).json({ error: 'Topico nao encontrado' });
   if (topic.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissao' });
-  db.prepare('DELETE FROM poll_votes WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM poll_options WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM topic_tags WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM likes WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM posts WHERE topic_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM topics WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  try {
+    // Transacao: ou o topico some inteiro, ou o banco fica exatamente como
+    // estava. Sem ela, uma falha no meio destruia tags e curtidas e deixava o
+    // topico no ar.
+    db.transaction(apagarTopicoEmCascata)(Number(req.params.id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro ao apagar topico:', err);
+    res.status(500).json({ error: 'Erro ao apagar topico' });
+  }
 });
 
 // =================== VOTACAO ===================
@@ -1413,6 +1757,8 @@ app.get('/api/topics/:id', optionalAuth, (req, res) => {
 app.post('/api/posts', auth, (req, res) => {
   const { content, topic_id } = req.body;
   if (!content || !topic_id) return res.status(400).json({ error: 'Conteudo e topico obrigatorios' });
+  if (typeof content !== 'string') return res.status(400).json({ error: 'Conteúdo deve ser texto' });
+  if (content.length > MAX_CONTENT) return res.status(400).json({ error: 'Conteúdo muito longo' });
   const user = db.prepare('SELECT banned FROM users WHERE id = ?').get(req.user.id);
   if (user?.banned) return res.status(403).json({ error: 'Sua conta foi banida' });
   const topic = db.prepare('SELECT locked, status, user_id FROM topics WHERE id = ?').get(topic_id);
@@ -1460,8 +1806,14 @@ app.delete('/api/posts/:id', auth, (req, res) => {
   const post = db.prepare('SELECT user_id FROM posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post nao encontrado' });
   if (post.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Sem permissao' });
-  db.prepare('DELETE FROM posts WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  try {
+    // Apagar um post curtido violava a FK de post_likes e devolvia 500.
+    db.transaction(apagarPostEmCascata)(Number(req.params.id));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro ao apagar post:', err);
+    res.status(500).json({ error: 'Erro ao apagar post' });
+  }
 });
 
 // =================== POST LIKES ===================
@@ -1586,37 +1938,34 @@ app.get('/api/topics/:id/related-resources', (req, res) => {
 
 app.post('/api/admin/resources/import-playlist', auth, adminOnly, async (req, res) => {
   const { playlist_id } = req.body;
-  if (!playlist_id) return res.status(400).json({ error: 'playlist_id é obrigatório' });
-  const API_KEY = YOUTUBE_API_KEY;
+  if (typeof playlist_id !== 'string' || !playlist_id.trim()) {
+    return res.status(400).json({ error: 'playlist_id é obrigatório' });
+  }
+  if (!YOUTUBE_ENABLED) {
+    return res.status(503).json({
+      error: 'Importação do YouTube indisponível: o servidor está sem YOUTUBE_API_KEY configurada.',
+    });
+  }
   try {
-    let allItems = [];
-    let nextPageToken = '';
-    do {
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlist_id}&key=${API_KEY}${nextPageToken ? '&pageToken=' + nextPageToken : ''}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.error) return res.status(400).json({ error: data.error.message });
-      allItems = allItems.concat(data.items || []);
-      nextPageToken = data.nextPageToken || '';
-    } while (nextPageToken);
+    const videos = await fetchPlaylistVideos(playlist_id.trim());
 
     const insert = db.prepare('INSERT OR IGNORE INTO resources (title, url, type, source, playlist_id) VALUES (?, ?, ?, ?, ?)');
     let imported = 0;
-    for (const item of allItems) {
-      const title = item.snippet.title;
-      if (title === 'Private video' || title === 'Deleted video') continue;
-      const videoId = item.snippet.resourceId.videoId;
-      const url = `https://www.youtube.com/watch?v=${videoId}`;
-      const existing = db.prepare('SELECT id FROM resources WHERE url = ?').get(url);
-      if (!existing) {
-        insert.run(title, url, 'video', 'youtube', playlist_id);
-        imported++;
-      }
+    for (const video of videos) {
+      const resultado = insert.run(video.title, video.url, 'video', 'youtube', playlist_id.trim());
+      if (resultado.changes > 0) imported++;
     }
-    const total = db.prepare('SELECT COUNT(*) as count FROM resources WHERE playlist_id = ?').get(playlist_id);
+    const total = db.prepare('SELECT COUNT(*) as count FROM resources WHERE playlist_id = ?').get(playlist_id.trim());
     res.json({ imported, total: total.count, playlist_id });
   } catch (err) {
-    res.status(500).json({ error: 'Erro ao importar playlist: ' + err.message });
+    // So a mensagem curada de YoutubeImportError chega ao cliente. Erro de
+    // outra origem pode carregar a requisicao — e a requisicao, a credencial.
+    if (err instanceof YoutubeImportError) {
+      console.warn('[playlists] Importacao manual falhou:', err.causa?.message || err.message);
+      return res.status(502).json({ error: err.message });
+    }
+    console.error('[playlists] Erro inesperado ao importar playlist:', err);
+    res.status(500).json({ error: 'Erro ao importar playlist.' });
   }
 });
 
@@ -1696,82 +2045,25 @@ app.put('/api/admin/users/:id/ban', auth, adminOnly, (req, res) => {
 });
 
 app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
-  const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(req.params.id);
+  const target = db.prepare('SELECT id, role, email FROM users WHERE id = ?').get(req.params.id);
   if (!target) return res.status(404).json({ error: 'Usuario nao encontrado' });
   if (target.id === req.user.id) return res.status(400).json({ error: 'Nao e possivel deletar a si mesmo' });
 
-  const deleteUser = db.transaction(() => {
-    // Buscar todos os topicos do usuario para limpar dependencias
-    const userTopics = db.prepare('SELECT id FROM topics WHERE user_id = ?').all(req.params.id);
-    const topicIds = userTopics.map(t => t.id);
-
-    // Limpar poll_votes e poll_options dos topicos do usuario
-    for (const tid of topicIds) {
-      db.prepare('DELETE FROM poll_votes WHERE topic_id = ?').run(tid);
-      const opts = db.prepare('SELECT id FROM poll_options WHERE topic_id = ?').all(tid);
-      for (const opt of opts) {
-        db.prepare('DELETE FROM poll_votes WHERE option_id = ?').run(opt.id);
-      }
-      db.prepare('DELETE FROM poll_options WHERE topic_id = ?').run(tid);
-    }
-
-    // Limpar topic_tags dos topicos do usuario
-    for (const tid of topicIds) {
-      db.prepare('DELETE FROM topic_tags WHERE topic_id = ?').run(tid);
-    }
-
-    // Limpar likes/dislikes dos posts em topicos do usuario (feitos por outros)
-    for (const tid of topicIds) {
-      const posts = db.prepare('SELECT id FROM posts WHERE topic_id = ?').all(tid);
-      for (const p of posts) {
-        db.prepare('DELETE FROM post_likes WHERE post_id = ?').run(p.id);
-        db.prepare('DELETE FROM post_dislikes WHERE post_id = ?').run(p.id);
-      }
-    }
-
-    // Limpar likes em topicos do usuario (feitos por outros)
-    for (const tid of topicIds) {
-      db.prepare('DELETE FROM likes WHERE topic_id = ?').run(tid);
-    }
-
-    // Limpar poll_votes feitos pelo usuario em outros topicos
-    db.prepare('DELETE FROM poll_votes WHERE user_id = ?').run(req.params.id);
-
-    // Limpar post_likes e post_dislikes feitos pelo usuario
-    db.prepare('DELETE FROM post_likes WHERE user_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM post_dislikes WHERE user_id = ?').run(req.params.id);
-
-    // Limpar likes feitos pelo usuario em outros topicos
-    db.prepare('DELETE FROM likes WHERE user_id = ?').run(req.params.id);
-
-    // Limpar mensagens, notificacoes e categorias do usuario
-    db.prepare('DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?').run(req.params.id, req.params.id);
-    db.prepare('DELETE FROM notifications WHERE user_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM user_categories WHERE user_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM user_specialties WHERE user_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM specialist_requests WHERE user_id = ?').run(req.params.id);
-
-    // Limpar posts do usuario (em topicos de outros)
-    db.prepare('DELETE FROM posts WHERE user_id = ?').run(req.params.id);
-
-    // Limpar posts de outros em topicos do usuario
-    for (const tid of topicIds) {
-      db.prepare('DELETE FROM posts WHERE topic_id = ?').run(tid);
-    }
-
-    // Deletar topicos do usuario
-    db.prepare('DELETE FROM topics WHERE user_id = ?').run(req.params.id);
-
-    // Deletar o usuario
-    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
-  });
+  // A sentinela guarda o conteudo de todas as contas ja removidas; apaga-la
+  // levaria junto o historico que ela existe para preservar.
+  if (target.email === EMAIL_USUARIO_REMOVIDO) {
+    return res.status(400).json({ error: 'Esta conta guarda o histórico de contas removidas e não pode ser excluída' });
+  }
 
   try {
-    deleteUser();
-    res.json({ ok: true });
+    // Politica definida com a frente: o conteudo publico permanece sem
+    // autoria; o dado pessoal e eliminado. Antes a exclusao apagava os
+    // topicos do usuario junto com TODAS as respostas de terceiros neles.
+    db.transaction(anonimizarERemoverUsuario)(Number(req.params.id));
+    res.json({ ok: true, anonimizado: true });
   } catch (err) {
-    console.error('Erro ao deletar usuario:', err);
-    res.status(500).json({ error: 'Erro ao deletar usuario' });
+    console.error('Erro ao remover usuario:', err);
+    res.status(500).json({ error: 'Erro ao remover usuario' });
   }
 });
 
@@ -1891,18 +2183,43 @@ app.put('/api/admin/topics/:id/reject', auth, (req, res) => {
   res.json({ ok: true });
 });
 
-// =================== ERROR HANDLER GLOBAL ===================
-app.use((err, req, res, next) => {
-  console.error('Erro não tratado:', err.message);
-  res.status(500).json({ error: 'Erro interno do servidor' });
-});
-
 // =================== SERVIR REACT BUILD ===================
 const buildPath = path.join(__dirname, '..', 'build');
+
+// Rota de API inexistente responde JSON. Sem isto ela caia na curinga do SPA e
+// voltava HTML, que estoura no res.json() do cliente com um erro de sintaxe
+// sem relacao nenhuma com a causa real.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `Rota de API nao encontrada: ${req.method} /api${req.path}` });
+});
+
 app.use(express.static(buildPath));
 
-app.get('{*path}', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
+app.get('{*path}', (req, res, next) => {
+  res.sendFile(path.join(buildPath, 'index.html'), (err) => {
+    if (err) next(err);
+  });
+});
+
+// =================== ERROR HANDLER GLOBAL ===================
+// Registrado por ultimo de proposito: o Express so entrega o erro a handlers
+// declarados DEPOIS do ponto onde ele aconteceu. Antes, este bloco vinha acima
+// do express.static, entao falha ao servir arquivo escapava para o handler
+// padrao do Express e vazava stack trace.
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) {
+    console.error('Erro nao tratado:', err.stack || err.message);
+  } else {
+    console.warn(`Requisicao recusada (${status}):`, err.message);
+  }
+  if (res.headersSent) return next(err);
+
+  // Mensagem propria so para erro de politica (4xx); 5xx nunca detalha.
+  const body = status >= 500
+    ? { error: 'Erro interno do servidor' }
+    : { error: err.expose === false ? 'Requisicao recusada' : err.message };
+  res.status(status).json(body);
 });
 
 app.listen(PORT, () => {
