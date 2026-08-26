@@ -1,0 +1,30 @@
+name: lilp-recpsp
+
+services:
+  web:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      # O banco vive no volume nomeado, não na árvore da app — sobrevive a rebuild.
+      DB_PATH: /data/forum.db
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env (sem fallback — padrão LILP)}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      # Se mudar RECPSP_PORT, ajuste ALLOWED_ORIGINS no .env também.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8003,http://127.0.0.1:8003}
+    ports:
+      # Loopback-only no host (convenção LILP): a app não fica exposta à rede.
+      # Porta de host 8003 para coexistir com a BDLP (8000/8080) e a PESCP (8002).
+      - "127.0.0.1:${RECPSP_PORT:-8003}:3001"
+    volumes:
+      - dbdata:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  dbdata:

@@ -1,0 +1,13 @@
+.git
+.claude
+node_modules
+build
+coverage
+server/forum.db
+server/forum.db-shm
+server/forum.db-wal
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

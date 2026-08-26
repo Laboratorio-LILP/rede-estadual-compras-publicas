@@ -42,13 +42,21 @@ Funcionalidades ativas: fórum com moderação prévia (tópico entra pendente e
 
 - **Clone canônico:** `~/Developer/Governo/rede-estadual-compras-publicas` (fora do OneDrive, ADR-002).
 - **Remoto:** `github.com/Laboratorio-LILP/rede-estadual-compras-publicas` (`origin`).
-- **Upstream:** `github.com/dudyfarias/RECPSP` (`upstream`) — repo pessoal do Eduardo Cappia, origem deste código. Use `git fetch upstream` se ele publicar algo novo. **Nunca faça push para o upstream.**
-- **Portas em dev:** React em `3000`, API em `3001` (`PORT`).
-- **Homologação de testes do Eduardo:** `https://recpsp.onrender.com`, que consta fixo em `ALLOWED_ORIGINS`. Hospedagem externa, fora do padrão de implantação do LILP — ver Divergências.
+- **Upstream:** `github.com/dudyfarias/RECPSP` (`upstream`) — repo pessoal do Eduardo Cappia, origem deste código. Use `git fetch upstream` se ele publicar algo novo. **Nunca faça push para o upstream** — a URL de push do remote foi trocada por uma sentinela inválida, então o push falha por construção.
+- **Docker (via canônica):** compose **`lilp-recpsp`**, um serviço (`web`), em **loopback** `127.0.0.1:8003` (`RECPSP_PORT`) — coexiste com a BDLP (8000/8080/5432) e a PESCP (8002/5433). Banco no volume nomeado `lilp-recpsp_dbdata`.
+- **Dev sem Docker:** React em `3000`, API em `3001` (`PORT`).
+- **Homologação de testes do Eduardo:** `https://recpsp.onrender.com`, presente na lista padrão de `ALLOWED_ORIGINS`. Hospedagem externa, fora do padrão de implantação do LILP — ver Divergências.
 
 ## Comandos
 
-Não há Makefile (a BDLP e a PESCP têm; esta frente ainda não). Os scripts reais da `package.json`:
+Makefile no padrão das outras frentes (Docker é a via canônica desde 26/08/2026):
+
+- `make setup` — 1ª vez: valida o `.env` (falha claro sem `JWT_SECRET`), constrói a imagem e sobe.
+- `make up` / `down` / `restart` / `logs` / `ps` / `shell`.
+- `make test` — testes do front no host (requer Node 18+).
+- `make clean` — derruba e **APAGA o volume**: o banco do fórum inteiro se perde.
+
+Para mexer no front com hot reload, dev sem Docker — os scripts reais da `package.json`:
 
 | Comando | O que faz de verdade |
 |---|---|
@@ -77,6 +85,10 @@ A variável é obrigatória: não existe campo `proxy` na `package.json`, e `src
 - **`express.json({ limit: '5mb' })`** — o editor de texto rico manda HTML no corpo; uploads maiores estouram com 413.
 - **Rate limit só na autenticação:** 20 tentativas por IP a cada 15 minutos. O resto da API não tem limite.
 - **Sem migrations.** O schema é criado por `CREATE TABLE IF NOT EXISTS` no boot. Alterar uma coluna existente exige script manual — o `IF NOT EXISTS` não atualiza tabela que já existe.
+- **O volume `lilp-recpsp_dbdata` persiste por nome de projeto**, não por pasta — base limpa exige `make clean` (ou `docker volume rm lilp-recpsp_dbdata`). No volume vazio o seed roda de novo e recria `admin`/`admin123`.
+- **No container o banco fica em `/data/forum.db`** (`DB_PATH` do compose); em dev sem Docker, em `server/forum.db`. Os dois ambientes não compartilham dados.
+- **Dependência nova entra na seção certa.** O runtime da imagem instala só as `dependencies` (os 7 pacotes do servidor); todo o front (React, react-scripts, Tailwind) vive em `devDependencies` e só existe no estágio de build. Servidor → `dependencies`; front → `devDependencies`.
+- **Lock dessincronizado com o `npm ci` do build:** o npm local (v11 + wrapper allow-scripts) pode gravar um lock que o npm 10 do `node:22` rejeita (aconteceu em 26/08 — dedupe inválido de `yaml` herdado do lock original). Regenere com o npm do container: `docker run --rm -v "$PWD":/work -w /work node:22-bookworm-slim npm install --package-lock-only`.
 
 ## Divergências do padrão LILP (herdadas)
 
@@ -85,18 +97,18 @@ Estes pontos **não** seguem o que BDLP e PESCP já adotaram. Corrigi-los é tra
 | Ponto | Como está aqui | Padrão LILP |
 |---|---|---|
 | **Credenciais de seed** | Cria `admin` / `admin123` e 5 usuários de teste com `teste123`, em código versionado e público. | Sem credencial padrão em repositório. |
-| **`JWT_SECRET`** | Tem fallback `'dev-only-secret-change-in-production'`. Só emite aviso no console; **não falha**. | Segredos por env, **sem fallback** — o stack falha claro se faltarem. |
+| **`JWT_SECRET`** | No código, fallback `'dev-only-secret-change-in-production'` com aviso. **Na via canônica (compose) a lacuna fechou em 26/08:** sem a variável, o stack não sobe. | Segredos por env, **sem fallback** — o stack falha claro se faltarem. |
 | **CSP** | Desativada no helmet (`contentSecurityPolicy: false`). | CSP estrita (`script-src 'self'`) em produção. |
-| **Origens CORS** | Lista fixa no código, incluindo um domínio `onrender.com`. | Configuração por ambiente. |
+| **Origens CORS** | **Resolvida em 26/08:** `ALLOWED_ORIGINS` por env; sem a variável, vale a lista original (que inclui `onrender.com`). | Configuração por ambiente. |
 | **Hospedagem** | Versão de teste em nuvem pública externa. | VM da SGGD atrás da borda, acesso por VPN (ADR-006). |
-| **Banco** | SQLite em arquivo. Não sobrevive a múltiplas instâncias nem a contêiner efêmero. | Postgres em contêiner. |
-| **Empacotamento** | Sem Docker, sem Makefile. | Docker Compose + Makefile. |
+| **Banco** | SQLite em arquivo — desde 26/08 num volume nomeado (sobrevive a rebuild), mas segue mono-instância. | Postgres em contêiner. |
+| **Empacotamento** | **Resolvida em 26/08:** compose `lilp-recpsp` + Makefile, loopback 8003, imagem em dois estágios. | Docker Compose + Makefile. |
 | **CI** | Não existe. | GitHub Actions com lint + testes nos PRs. |
 | **Paleta** | `#FF161F` em `tailwind.config.js`. | GESP **`#ED1C24`** (Pantone 485 C, fiel ao manual). |
 | **Acessibilidade** | Sem auditoria. | eMAG 3.1 + WCAG 2.0 AA, auditado. |
 | **Licença** | Ausente. | MIT, com arquivo `LICENSE`. |
 
-Nada disso foi alterado na importação: o código está exatamente como o Eduardo entregou em 31/07/2026, com histórico e autoria preservados.
+Na importação nada foi alterado — o código chegou exatamente como o Eduardo entregou em 31/07/2026, com histórico e autoria preservados. Em 26/08/2026 a containerização tratou três linhas (Empacotamento, Origens CORS e o `JWT_SECRET` na via canônica); o restante segue aberto.
 
 ## Flags de funcionalidade
 

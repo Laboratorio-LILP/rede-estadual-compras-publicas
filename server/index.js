@@ -566,11 +566,15 @@ for (const [oldName, newName] of tagFixes) {
 }
 
 // =================== MIDDLEWARES ===================
-const ALLOWED_ORIGINS = [
-  'https://recpsp.onrender.com',
-  'http://localhost:3000',
-  'http://localhost:3001',
-];
+// Origens permitidas: configuráveis por ambiente (padrão LILP). Sem a variável,
+// vale a lista original — o comportamento fora do container não muda.
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : [
+      'https://recpsp.onrender.com',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ];
 app.use(cors({
   origin: function(origin, callback) {
     // Permitir requests sem origin (mobile apps, curl, server-side)

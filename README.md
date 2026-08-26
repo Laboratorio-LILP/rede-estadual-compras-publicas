@@ -13,19 +13,29 @@ lugar comum para perguntar, responder e padronizar.
 
 ---
 
-## Comece por aqui
+## Comece por aqui (Docker)
 
-Você precisa de **Node.js 18 ou superior**. Não há Docker nesta frente.
+Pré-requisitos: Docker + Docker Compose v2.
 
 ```bash
 git clone git@github.com:Laboratorio-LILP/rede-estadual-compras-publicas.git
 cd rede-estadual-compras-publicas
-npm install
-cp .env.example .env      # defina JWT_SECRET com um valor próprio
+cp .env.example .env      # defina JWT_SECRET (gere com: openssl rand -hex 32)
+make setup                # constrói a imagem e sobe o stack lilp-recpsp
 ```
 
-O banco não precisa de instalação. O SQLite é criado no primeiro boot, já com categorias,
-tags e conteúdo de exemplo.
+Abra <http://localhost:8003>. O banco não precisa de instalação: o SQLite é criado no
+primeiro boot, dentro do volume `lilp-recpsp_dbdata`, já com categorias, tags e conteúdo
+de exemplo. Sem `JWT_SECRET` no `.env`, o compose se recusa a subir — é proposital.
+
+## Dev local sem Docker
+
+Para mexer no front com hot reload você precisa de **Node.js 18 ou superior**.
+
+```bash
+npm install
+cp .env.example .env      # se ainda não existir
+```
 
 ### Rodar em desenvolvimento
 
@@ -44,9 +54,10 @@ Abra <http://localhost:3000>.
 A variável `REACT_APP_API_URL` é obrigatória. Sem ela, o front procura a API na própria porta
 3000 e todas as chamadas falham.
 
-### Rodar como em produção
+### Rodar como em produção (sem Docker)
 
-Em produção existe um processo só. O servidor Express entrega a API e o site.
+Em produção existe um processo só. O servidor Express entrega a API e o site — é
+exatamente o que o container faz.
 
 ```bash
 npm run build
@@ -56,6 +67,18 @@ npm start                 # sobe tudo na porta 3001
 ---
 
 ## Comandos
+
+### Docker (via canônica)
+
+| Comando | O que faz |
+|---|---|
+| `make setup` | 1ª vez: valida o `.env`, constrói a imagem e sobe. |
+| `make up` / `make down` | Sobe / derruba o container. O banco fica no volume. |
+| `make logs` / `make ps` / `make shell` | Logs, estado do stack, shell no container. |
+| `make test` | Roda os testes no host (requer Node 18+). |
+| `make clean` | Derruba e **apaga o volume** — o banco do fórum é perdido. |
+
+### npm (dev sem Docker)
 
 | Comando | O que faz |
 |---|---|
@@ -69,12 +92,13 @@ npm start                 # sobe tudo na porta 3001
 
 ## Primeiro acesso
 
-O seed cria um administrador e cinco usuários de exemplo:
+O seed cria um administrador e cinco usuários de exemplo. **O login é pelo e-mail**, não
+pelo nome de usuário:
 
-| Usuário | Senha | Papel |
+| E-mail | Senha | Papel |
 |---|---|---|
-| `admin` | `admin123` | Administrador |
-| `MariaLicitacao`, `JoaoContratos`, `AnaSustentavel`, `CarlosPregao`, `FernandaGestao` | `teste123` | Usuário comum |
+| `admin@forum.com` | `admin123` | Administrador |
+| `maria@teste.com`, `joao@teste.com`, `ana@teste.com`, `carlos@teste.com`, `fernanda@teste.com` | `teste123` | Usuário comum |
 
 > **Atenção.** Essas credenciais servem apenas para desenvolvimento local. Troque a senha do
 > administrador e remova os usuários de exemplo antes de qualquer publicação, inclusive em
@@ -95,6 +119,7 @@ O seed cria um administrador e cinco usuários de exemplo:
 | Autenticação | JWT (`jsonwebtoken`) + `bcryptjs` |
 | Segurança HTTP | `helmet`, `cors`, `express-rate-limit` |
 | Testes | Jest + Testing Library |
+| Empacotamento | Docker Compose (`lilp-recpsp`) + Makefile |
 
 ---
 
@@ -119,6 +144,9 @@ rede-estadual-compras-publicas/
 ├── public/               # brasão, logotipos e assinaturas do Governo de SP
 ├── craco.config.js
 ├── tailwind.config.js    # paleta gov.* e tipografia
+├── Dockerfile            # dois estágios: build do front + runtime enxuto
+├── docker-compose.yml    # stack lilp-recpsp — web em loopback 8003, volume do banco
+├── Makefile              # setup, up, down, logs, shell, test, clean
 ├── .env.example
 ├── CLAUDE.md             # instruções da frente para o Claude Code
 └── README.md
@@ -170,16 +198,20 @@ O `.env.example` documenta todas as chaves:
 
 | Variável | Para quê | Obrigatória |
 |---|---|---|
-| `PORT` | Porta da API. Padrão `3001`. | Não |
-| `JWT_SECRET` | Assina os tokens de sessão. | **Sim, em produção** |
-| `DB_PATH` | Caminho do SQLite. Padrão `server/forum.db`. | Não |
+| `PORT` | Porta da API em dev sem Docker. Padrão `3001`. | Não |
+| `JWT_SECRET` | Assina os tokens de sessão. | **Sim — no Docker o compose não sobe sem ela** |
+| `DB_PATH` | Caminho do SQLite em dev. No Docker o compose já define `/data/forum.db`. | Não |
 | `YOUTUBE_API_KEY` | Importa playlists de capacitação. | Só para essa função |
+| `RECPSP_PORT` | Porta no host para o Docker (loopback). Padrão `8003`. | Não |
+| `ALLOWED_ORIGINS` | Origens aceitas pelo CORS, separadas por vírgula. Se mudar `RECPSP_PORT`, ajuste aqui também. | Só no Docker |
 
-Sem `JWT_SECRET`, o servidor sobe com um valor de desenvolvimento e apenas avisa no console.
-Defina a variável antes de qualquer publicação.
+Fora do Docker, sem `JWT_SECRET` o servidor sobe com um valor de desenvolvimento e apenas
+avisa no console — defina a variável antes de qualquer publicação. No Docker essa brecha
+não existe: o compose falha claro sem ela.
 
-O arquivo `.env` nunca entra no Git. O banco `server/forum.db` também não — ele é artefato de
-runtime e o seed o recria.
+O arquivo `.env` nunca entra no Git. O banco também não — em dev ele vive em
+`server/forum.db`; no Docker, em `/data/forum.db`, dentro do volume `lilp-recpsp_dbdata`.
+Os dois ambientes não compartilham dados.
 
 ---
 
@@ -201,9 +233,10 @@ git remote -v
 
 ## Estado e próximos passos
 
-A base recebida é um protótipo funcional de fórum. Ela ainda não segue o padrão de implantação
-do LILP. O [`CLAUDE.md`](CLAUDE.md) lista as divergências em detalhe — entre elas, ausência de
-Docker, de CI e de auditoria de acessibilidade, credenciais de seed em código e CSP desativada.
+A base recebida é um protótipo funcional de fórum. A containerização entrou no padrão do
+LILP em 26/08/2026 (compose `lilp-recpsp` + Makefile), mas parte das divergências herdadas
+segue aberta. O [`CLAUDE.md`](CLAUDE.md) lista tudo em detalhe — entre elas, ausência de CI
+e de auditoria de acessibilidade, credenciais de seed em código e CSP desativada.
 
 Há também uma **pendência de segurança herdada**: uma chave de API ficou exposta no histórico
 Git e precisa ser rotacionada. Os detalhes estão na seção *Segredos* do `CLAUDE.md`.
