@@ -1,5 +1,11 @@
 # Arquitetura da plataforma RECPSP
 
+> **Aviso (27/08/2026):** este documento descreve a **base legada** — o protótipo
+> Node/Express/SQLite que roda como demonstração congelada na porta 8003. A
+> plataforma será reescrita (ADR 0002); a arquitetura da base nova está em
+> [`specs/arquitetura-alvo.md`](specs/arquitetura-alvo.md). Este arquivo permanece
+> válido para operar a demonstração e sai da árvore no corte, junto com o código.
+
 > Mapa do sistema como ele **é hoje**, para quem vai programar nele — inclusive
 > sessões paralelas do Claude Code. O `CLAUDE.md` diz onde não tropeçar; este
 > arquivo diz como a coisa está montada. O que a plataforma **deve** fazer está no
