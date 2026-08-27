@@ -42,7 +42,7 @@ Regras de uso, para qualquer sessão:
 
 - **Funcionalidade nova nasce de um requisito.** Antes de implementar, localize o RF/RNF no Documento de Requisitos e cite o ID no commit. A prioridade da v1 está na seção 8: capacitação primeiro, por exigência da coordenação.
 - **Decisão em aberto não se inventa.** Se a implementação exigir uma decisão que não está registrada, registre a pergunta em `docs/QUESTIONS.md` e pare — não deduza da implementação atual, que em vários pontos é herança de protótipo, não decisão.
-- **Requisitos dizem o "deve ser"; o código diz o "é".** A coluna as-is do Documento de Requisitos é fotografia de 26/08 anterior às rodadas que fecharam CI, CSP, credenciais de seed e licença — para o estado atual valem o código, `ARCHITECTURE.md`/`MODELO_DE_DADOS.md` e o checklist.
+- **Requisitos dizem o "deve ser"; o código diz o "é".** Para o estado atual valem o código, `ARCHITECTURE.md`/`MODELO_DE_DADOS.md` e o checklist — a coluna as-is do Documento de Requisitos é fotografia da data da versão dele e só se atualiza no rito de republicação.
 - **O `.md` dos requisitos é a fonte.** O `.docx` e o `.pdf` na mesma pasta são renderizações institucionais da mesma versão: alterou requisito, altere o `.md` e siga o rito de republicação do `docs/README.md`. Nunca edite o `.docx` diretamente.
 
 ## O que é

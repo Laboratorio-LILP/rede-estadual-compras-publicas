@@ -139,8 +139,7 @@ const topicStatus = (hasMedia && !isAdminOrMod) ? 'pending' : 'approved';
 Um tópico de texto puro é publicado direto, sem passar por curadoria. A decisão
 registrada na apresentação de 26/08 (Laís) é que **todo** tópico novo passe por
 aprovação, justamente pelo risco político. O Documento de Requisitos registra
-isso como RF-FOR-03 e descreve o as-is como implementado — o que só vale para
-tópicos com mídia.
+isso como RF-FOR-03, com o as-is descrito como parcial (só tópicos com mídia).
 
 **Pergunta:** confirma que toda criação de tópico deve entrar pendente? Se sim,
 é mudança de uma linha, mas cria carga de moderação diária que precisa de dono.
@@ -203,11 +202,14 @@ lançamento isso vira migração de dados com tópicos já classificados.
 
 **Status atual:** o seed cria 5 usuários fictícios e 15 tópicos com respostas,
 curtidas e votos — com órgãos de outros estados (Prefeitura de São Paulo,
-TCE-RJ, Ministério da Economia). Serve para desenvolvimento.
+TCE-RJ, Ministério da Economia). Desde a rodada de 26/08, em produção esse
+conteúdo só entra com `SEED_DEMO_DATA=1` — sem a variável, a base nasce só com
+o admin. Em dev continua entrando por padrão (`SEED_DEMO_DATA=0` desliga).
 
-**Pergunta:** a homologação institucional sobe com esse conteúdo (útil para
-testar navegação) ou com base limpa (evita confusão de quem valida)? Se limpa,
-é preciso um caminho de seed separado para dev. **Decide:** Bernardo com Laís.
+**Pergunta:** a homologação institucional sobe com `SEED_DEMO_DATA=1` (útil
+para testar navegação) ou com a base limpa do padrão de produção (evita
+confusão de quem valida)? O mecanismo dos dois caminhos já existe — falta a
+escolha. **Decide:** Bernardo com Laís.
 
 ---
 

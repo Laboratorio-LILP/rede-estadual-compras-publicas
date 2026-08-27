@@ -24,6 +24,10 @@ Regra para não haver duas verdades: alterou o requisito, altere o `.md`,
 regenere `.docx` e `.pdf` e republique a cópia da pasta da frente no OneDrive,
 que é onde a equipe lê. Nunca edite o `.docx` diretamente.
 
+Estado em 26/08/2026: o `.md` está na v1.1 (as-is sincronizado com as rodadas
+do dia); o `.docx` e o `.pdf` ainda renderizam a v1.0 — regenerar e republicar
+na próxima circulação institucional.
+
 ## Manutenção
 
 `ARCHITECTURE.md` e `MODELO_DE_DADOS.md` descrevem o código: quando o
