@@ -9,11 +9,25 @@
 
 default_install_hook_types: [pre-commit, pre-push]
 
+# O legado esta CONGELADO (ADR 0002): os ganchos genericos nao o reformatam.
+# Sem esta exclusao, uma correcao de seguranca no legado viria acompanhada de
+# um diff de espaco em branco na arvore que ninguem pediu para mexer.
+exclude: |
+  (?x)^(
+    server/|
+    src/|
+    public/|
+    build/|
+    package-lock\.json$|
+    frontend/package-lock\.json$
+  )
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json

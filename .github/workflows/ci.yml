@@ -54,8 +54,11 @@ jobs:
       - name: Lint (ruff, mypy, tsc, ESLint, tokens)
         run: make lint
 
-      - name: Testes (pytest e Vitest, dentro do conteiner)
-        run: make test
+      - name: Testes do back (pytest, dentro do conteiner)
+        run: make test-back
+
+      - name: Testes do front (Vitest, dentro do conteiner)
+        run: make test-front
 
       - name: Build do front e checagem de implantacao do back
         run: make build-app
