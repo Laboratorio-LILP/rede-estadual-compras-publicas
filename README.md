@@ -254,17 +254,21 @@ git remote -v
 
 ## Estado e próximos passos
 
-A base recebida é um protótipo funcional de fórum. Em 26/08/2026 três rodadas mexeram nela:
-a containerização no padrão LILP (compose `lilp-recpsp` + Makefile), o laço de verificação
-(testes de API + CI) e a rodada de dívida técnica (segurança, exclusão, contrato de erro,
-paleta e licença). O [`CLAUDE.md`](CLAUDE.md) lista tudo em detalhe. Seguem abertas a
-hospedagem fora do padrão, o SQLite mono-instância e a ausência de auditoria de
-acessibilidade.
+**Em 27/08/2026 foi decidida a reescrita da plataforma** (Django + PostgreSQL no
+back, React + Vite + TypeScript no front), preservando o conceito e o layout do
+protótipo. As decisões estão em [`docs/adr/`](docs/adr/) — comece pelo
+[0002](docs/adr/0002-reescrita-stack-e-estrangulamento.md) — e a especificação em
+[`docs/specs/`](docs/specs/).
 
-Há também uma **pendência de segurança herdada**: uma chave de API ficou exposta no histórico
-Git e precisa ser rotacionada. Os detalhes estão na seção *Segredos* do `CLAUDE.md`.
+**O código deste README é a base legada**, que continua no ar como demonstração
+congelada (porta 8003) até o corte: as instruções de instalação e os comandos
+acima seguem valendo para ela, e nenhuma funcionalidade nova entra nela. A base
+nova nasce em `backend/` e `frontend/`, conforme o
+[plano de implementação](docs/specs/plano-de-implementacao.md).
 
-Tratar esses pontos é o trabalho de entrada da frente.
+Permanece a **pendência de segurança herdada**: uma chave de API exposta no
+histórico Git, a rotacionar no Google Cloud. Detalhes na seção *Segredos* do
+[`CLAUDE.md`](CLAUDE.md).
 
 ---
 

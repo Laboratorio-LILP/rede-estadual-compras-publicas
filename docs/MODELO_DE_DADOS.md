@@ -1,5 +1,10 @@
 # Modelo de dados da plataforma RECPSP
 
+> **Aviso (27/08/2026):** este documento descreve as 18 tabelas SQLite da **base
+> legada**, cujo banco contém apenas demonstração e é descartável (ADR 0001). O
+> modelo da base nova está em [`specs/modelo-de-dados.md`](specs/modelo-de-dados.md).
+> Este arquivo permanece válido para a demonstração e sai da árvore no corte.
+
 > O que existe no banco hoje, como foi criado e o que é preciso saber antes de
 > alterar. Complementa `ARCHITECTURE.md`. Fonte: `server/index.js`, linhas 40–535.
 
