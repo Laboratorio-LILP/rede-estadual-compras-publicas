@@ -20,7 +20,7 @@ const RAIZ_DO_REPO = resolve(AQUI, "..", "..");
 const ALVOS = ["frontend/src", "backend/apps"];
 
 /** O arquivo dono das cores. */
-const ARQUIVO_DE_TOKENS = "frontend/src/estilos/tokens.css";
+const ARQUIVO_DE_TOKENS = "frontend/src/estilos/estatico/tokens.css";
 
 /**
  * Os unicos arquivos autorizados a conter hexadecimal.

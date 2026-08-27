@@ -8,8 +8,10 @@
       name="description"
       content="Fundacao da base nova da Rede Estadual de Compras Publicas de Sao Paulo."
     />
-    {# Tokens do design system (ADR-007). Arquivo unico, compartilhado com o front. #}
+    {# Tokens e fontes do design system (ADR-007). Os mesmos arquivos que o
+       front usa — sem segunda copia, e sem requisicao ao Google por visitante. #}
     <link rel="stylesheet" href="{% static 'tokens.css' %}" />
+    <link rel="stylesheet" href="{% static 'fontes.css' %}" />
     <link rel="stylesheet" href="{% static 'fundacao.css' %}" />
   </head>
   <body>

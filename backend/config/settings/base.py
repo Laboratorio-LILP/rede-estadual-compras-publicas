@@ -144,11 +144,18 @@ ADMIN_URL = variavel("RECPSP_ADMIN_PATH", "gestao/").lstrip("/")
 STATIC_URL = f"{BASE_PATH}static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Fonte unica dos tokens do design system (ADR-007 transversal). O front e o
-# dono do arquivo; a pagina raiz servida pelo Django le o MESMO arquivo, para
-# que nao exista um segundo lugar com valor de cor.
-DIRETORIO_DE_TOKENS = REPO_DIR / "frontend" / "src" / "estilos"
-STATICFILES_DIRS = [DIRETORIO_DE_TOKENS] if DIRETORIO_DE_TOKENS.is_dir() else []
+# Fonte unica dos tokens e das fontes do design system (ADR-007 transversal).
+# O front e' o dono dos arquivos; a pagina servida pelo Django le os MESMOS,
+# para que nao exista um segundo lugar com valor de cor.
+#
+# Aponta para `estatico/`, e NAO para `estilos/` inteiro: so o que esta la'
+# dentro e' CSS puro, servivel como esta. O resto (`index.css`, `tema.css`,
+# `base.css`, `componentes.css`) depende do Vite e do Tailwind, e um
+# `@import "tailwindcss"` num diretorio publicado derruba o `collectstatic` de
+# producao — que reescreve toda referencia dentro de CSS. Sob teste em
+# `backend/tests/test_estaticos.py`.
+DIRETORIO_ESTATICO_DO_FRONT = REPO_DIR / "frontend" / "src" / "estilos" / "estatico"
+STATICFILES_DIRS = [DIRETORIO_ESTATICO_DO_FRONT] if DIRETORIO_ESTATICO_DO_FRONT.is_dir() else []
 
 # O armazenamento com manifesto (hash no nome do arquivo) exige `collectstatic`
 # e so entra em producao — ver `prod.py`. Em desenvolvimento e nos testes, o

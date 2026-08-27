@@ -45,9 +45,11 @@ COPY backend/requirements.txt ./
 RUN pip install --requirement requirements.txt
 
 COPY backend/ /app/backend/
-# Os tokens do design system sao servidos pela aplicacao (ADR-007: fonte e
-# estilo do proprio servidor, sem requisicao ao Google por visitante).
-COPY frontend/src/estilos/ /app/frontend/src/estilos/
+# Os tokens e as fontes do design system sao servidos pela aplicacao (ADR-007:
+# fonte e estilo do proprio servidor, sem requisicao ao Google por visitante).
+# So o subdiretorio `estatico/`: o resto de `estilos/` depende do Vite, e o
+# `collectstatic` abaixo nao resolveria `@import "tailwindcss"`.
+COPY frontend/src/estilos/estatico/ /app/frontend/src/estilos/estatico/
 
 # `collectstatic` precisa das settings de producao para gerar o manifesto com
 # hash. Os valores abaixo existem so durante a construcao da imagem e nao sao

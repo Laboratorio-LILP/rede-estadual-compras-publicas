@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
-const TOKENS = readFileSync(join(AQUI, "tokens.css"), "utf8");
+const TOKENS = readFileSync(join(AQUI, "estatico", "tokens.css"), "utf8");
 
 /** Piso da WCAG 2.1 AA para texto normal (1.4.3). */
 const AA_TEXTO = 4.5;

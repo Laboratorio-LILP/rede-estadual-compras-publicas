@@ -108,7 +108,7 @@ teste**:
 > local)" para as duas. Na prática:
 >
 > - **Montserrat** é software livre sob a SIL Open Font License 1.1 —
->   redistribuível, e está versionada em `frontend/src/estilos/fontes/`
+>   redistribuível, e está versionada em `frontend/src/estilos/estatico/fontes/`
 >   (subconjunto `latin`, pesos 400/600/700, 18 KB cada; origem
 >   `@fontsource/montserrat@5.3.0`; a licença acompanha os arquivos).
 > - **Verdana é fonte proprietária da Microsoft e a licença proíbe
@@ -123,8 +123,18 @@ teste**:
 > garantia.
 >
 > Os arquivos moram ao lado de `tokens.css` de propósito: o build do Vite e o
-> Django (que serve `frontend/src/estilos/` como diretório de estáticos e o copia
-> para a imagem de produção) leem o **mesmo** diretório. Não existe segunda cópia.
+> Django leem o **mesmo** diretório. Não existe segunda cópia.
+>
+> **Correção 1.1 — nem todo CSS do design system é servível como está.** O
+> Django publica `frontend/src/estilos/**estatico/**`, e não `estilos/` inteiro.
+> Lá dentro só mora CSS puro — `tokens.css`, `fontes.css` e os arquivos de
+> fonte —, que qualquer servidor entrega sem passo de build. `index.css`,
+> `tema.css`, `base.css` e `componentes.css` dependem do Vite e do Tailwind e
+> ficam **fora**: um `@import "tailwindcss"` num diretório publicado derruba o
+> `collectstatic` de produção, que reescreve toda referência dentro de CSS.
+> Foi assim que a etapa 1 quebrou a construção da imagem de produção sem que
+> `make lint`, `make test` ou `make a11y-check` percebessem. A fronteira está
+> sob teste em `backend/tests/test_estaticos.py`.
 - Escala de texto: 12 · 14 (base) · 16 · 18 · 20 · 24 · 30 px. Nada abaixo de
   12 px (o legado usava 10 e 11).
 - Raio: **3 valores** — `sm` 4px (campos, selos), `md` 8px (cartões, botões),

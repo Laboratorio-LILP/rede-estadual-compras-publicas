@@ -3,16 +3,22 @@
  *
  * A ORDEM importa, e nao e' estetica:
  *
- * 1. `tokens.css` e `fontes.css` vem antes do Tailwind porque o `@theme`
- *    aponta para os `--sp-*` deles.
+ * 1. `estatico/tokens.css` e `estatico/fontes.css` vem antes do Tailwind
+ *    porque o `@theme` aponta para os `--sp-*` deles.
+ *
+ * Os dois moram em `estatico/` porque sao CSS PURO: o Django os publica como
+ * estao, sem passo de build. Este arquivo, `tema.css`, `base.css` e
+ * `componentes.css` dependem do Vite e do Tailwind e por isso ficam FORA de
+ * la' — `@import "tailwindcss"` num diretorio publicado pelo Django derruba o
+ * `collectstatic` de producao. Ver `backend/tests/test_estaticos.py`.
  * 2. `base.css` e `componentes.css` entram DENTRO das camadas do Tailwind
  *    (`layer(base)` e `layer(components)`). Fora delas, ficariam acima das
  *    classes de utilidade na cascata, e um `mt-4` colado num `<Botao>` deixaria
  *    de funcionar — a falha classica de misturar CSS proprio com Tailwind.
  */
 
-@import "./tokens.css";
-@import "./fontes.css";
+@import "./estatico/tokens.css";
+@import "./estatico/fontes.css";
 
 @import "tailwindcss";
 @import "./tema.css";
