@@ -36,3 +36,18 @@ firebase-debug.log*
 
 # claude settings
 .claude/
+
+# --- Base nova (etapa 0) ---
+
+# Dependencias e artefatos de build do front
+/frontend/node_modules
+/frontend/dist
+
+# Artefatos do back
+/backend/staticfiles
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/

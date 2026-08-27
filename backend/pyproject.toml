@@ -1,0 +1,59 @@
+# Configuracao das ferramentas do back. O empacotamento e por conteiner
+# (ADR-008); este arquivo existe para ruff, mypy e pytest, nao para build.
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # isort
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "DJ",  # flake8-django
+  "S",   # bandit
+  "C4",  # comprehensions
+  "SIM", # simplify
+  "RUF",
+]
+ignore = [
+  "RUF001", # texto em portugues usa acento; a regra de caractere ambiguo nao ajuda aqui
+  "RUF002",
+  "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Testes podem usar `assert` (S101) e valores fixos de teste.
+"tests/*" = ["S101", "S105", "S106"]
+# Os arquivos de settings importam com `*` por convencao do Django.
+"config/settings/*" = ["F401", "F403", "F405"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+strict = true
+# O Django devolve muita coisa sem tipo; exigir anotacao completa em migracao
+# geraria ruido sem ganho.
+exclude = ["migrations/"]
+warn_unused_ignores = true
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.django-stubs]
+django_settings_module = "config.settings.dev"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.dev"
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra --strict-markers"

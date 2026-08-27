@@ -1,0 +1,52 @@
+{% load static %}<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RECPSP — Rede Estadual de Compras Publicas de Sao Paulo</title>
+    <meta
+      name="description"
+      content="Fundacao da base nova da Rede Estadual de Compras Publicas de Sao Paulo."
+    />
+    {# Tokens do design system (ADR-007). Arquivo unico, compartilhado com o front. #}
+    <link rel="stylesheet" href="{% static 'tokens.css' %}" />
+    <link rel="stylesheet" href="{% static 'fundacao.css' %}" />
+  </head>
+  <body>
+    {# Skip link e landmarks: o piso do ADR-007 vale desde a primeira pagina. #}
+    <a class="pular-para-conteudo" href="#conteudo">Pular para o conteudo</a>
+
+    <header class="faixa">
+      <p class="faixa__marca">Rede Estadual de Compras Publicas de Sao Paulo</p>
+    </header>
+
+    <main id="conteudo" class="pagina">
+      <h1>Base nova da RECPSP</h1>
+      <p class="destaque">
+        Etapa 0 do plano de implementacao: a fundacao esta de pe. A interface do
+        produto nasce na etapa 1, sobre estes mesmos tokens.
+      </p>
+
+      <h2>Onde estao as coisas</h2>
+      <dl class="lista-de-dados">
+        <dt>Contrato da API</dt>
+        <dd><a href="{{ caminho_base }}api/v1/openapi.json">openapi.json</a></dd>
+
+        <dt>Estado do servico</dt>
+        <dd><a href="{{ caminho_base }}api/v1/saude">saude</a></dd>
+
+        <dt>Versao da API</dt>
+        <dd>{{ versao }}</dd>
+      </dl>
+
+      <p class="nota">
+        Esta pagina nao tem estilo nem script embutido: a politica de seguranca
+        de conteudo e estrita desde o primeiro commit.
+      </p>
+    </main>
+
+    <footer class="rodape">
+      <p>Laboratorio de Inovacao em Logistica Publica — SGGD/SEGES</p>
+    </footer>
+  </body>
+</html>

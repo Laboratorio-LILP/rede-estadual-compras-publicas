@@ -1,0 +1,31 @@
+{
+  "//": [
+    "Atalho para quem usa editor com suporte a devcontainer (ADR-008 transversal).",
+    "Regra que sustenta a decisao: NENHUM comando existe so aqui. O que este",
+    "arquivo faz, o Makefile na raiz faz — `make up`, `make test`, `make lint`.",
+    "Se este arquivo for apagado, nada deixa de funcionar.",
+    "",
+    "Requer um `.env` na raiz (copie de `.env.example` e defina",
+    "RECPSP_DB_PASSWORD): o Compose recusa subir sem o segredo do banco."
+  ],
+  "name": "RECPSP — base nova",
+  "dockerComposeFile": ["../docker/docker-compose.dev.yml"],
+  "service": "backend",
+  "workspaceFolder": "/app",
+  "shutdownAction": "stopCompose",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "files.eol": "\n"
+      }
+    }
+  }
+}

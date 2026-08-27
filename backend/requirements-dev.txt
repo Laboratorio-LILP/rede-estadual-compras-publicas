@@ -1,0 +1,12 @@
+# Ferramentas de desenvolvimento e verificacao. Rodam DENTRO do conteiner
+# (ADR-008) — nada disso se instala na maquina.
+
+-r requirements.txt
+
+# 9.0.3 corrige PYSEC-2026-1845, apontada por `make auditoria`.
+pytest>=9.0.3,<10.0
+pytest-django>=4.8,<5.0
+ruff>=0.6,<1.0
+mypy>=1.11,<2.0
+django-stubs>=5.0,<6.0
+pip-audit>=2.7,<3.0

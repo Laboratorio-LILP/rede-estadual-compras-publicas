@@ -15,6 +15,7 @@ A numeração é local: o `0001` daqui não tem relação com o `ADR-001` da vau
 | [0001](0001-banco-de-producao.md) | Banco de produção: PostgreSQL | Aceito | 2026-08-27 |
 | [0002](0002-reescrita-stack-e-estrangulamento.md) | Reescrita: stack e estratégia de transição | Aceito | 2026-08-27 |
 | [0003](0003-papeis-moderacao-e-taxonomia.md) | Papéis, moderação e taxonomia do fórum | Aceito | 2026-08-27 |
+| [0004](0004-loopback-em-conteiner.md) | Como o loopback do ADR-004 se realiza em contêiner | Aceito | 2026-08-27 |
 
 ## Transversais que restringem esta frente
 
@@ -22,7 +23,7 @@ A numeração é local: o `0001` daqui não tem relação com o `ADR-001` da vau
 |---|---|
 | ADR-001 | A RECPSP é Trilho A: contêineres Docker. |
 | ADR-002 | Clone fora do OneDrive; nunca empurrar para o `upstream`. |
-| ADR-004 | Nome `lilp-recpsp`; portas 8003, 8004, 5434 e 5173, todas em loopback. |
+| ADR-004 | Nome `lilp-recpsp`; portas 8003, 8004, 5434 e 5173, todas em loopback. **Divergência registrada no [0004](0004-loopback-em-conteiner.md):** em contêiner, o loopback é garantido pela publicação no host, não pela ligação interna do processo. |
 | ADR-005 | Limpo para subcaminho; admin isolado. |
 | ADR-006 | Dev local sem servidor; homologação só por VPN; sem túnel; corte pela esteira ou por solicitação à TI. |
 | ADR-007 | Tokens GESP, piso eMAG 3.1 + WCAG 2.0 AA com critério de aceite. |

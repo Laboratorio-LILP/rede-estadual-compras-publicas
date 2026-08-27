@@ -1,0 +1,44 @@
+{
+  "name": "recpsp-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Front da Rede Estadual de Compras Publicas de Sao Paulo (base nova).",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --build --force && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:tipos": "tsc --noEmit -p tsconfig.app.json",
+    "lint:tokens": "node scripts/verificar-tokens.mjs",
+    "tipos:api": "openapi-typescript http://backend:8004/api/v1/openapi.json -o src/api/contrato.d.ts"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.17.0",
+    "eslint-plugin-jsx-a11y": "^6.10.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
+    "jsdom": "^25.0.0",
+    "openapi-typescript": "^7.5.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.18.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  }
+}

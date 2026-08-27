@@ -4,13 +4,14 @@ Rede Estadual de Compras Públicas de São Paulo (RECPSP), Projeto 3 do Portfól
 2026 do LILP. Este arquivo é a camada de **Instruções da frente**; viaja com o
 repositório.
 
-> **Estado da frente (27/08/2026): reescrita decidida e especificada.** Este
-> repositório carrega **duas gerações**: a base herdada do protótipo do Eduardo
-> (Node/Express/SQLite — raiz, `server/`, `src/`), que roda como **demonstração
-> congelada**, e a base nova (Django + PostgreSQL + React/Vite/TypeScript), a
-> nascer em `backend/` e `frontend/` conforme
-> `docs/specs/plano-de-implementacao.md`. **Nenhuma funcionalidade nova entra no
-> legado** — nele, só correção de segurança crítica.
+> **Estado da frente (27/08/2026): etapa 0 concluída — a fundação da base nova
+> está de pé.** Este repositório carrega **duas gerações**: a base herdada do
+> protótipo do Eduardo (Node/Express/SQLite — raiz, `server/`, `src/`), que roda
+> como **demonstração congelada**, e a base nova (Django 5 + PostgreSQL 16 +
+> React/Vite/TypeScript), em `backend/`, `frontend/` e `docker/`. **Nenhuma
+> funcionalidade nova entra no legado** — nele, só correção de segurança crítica.
+> Próxima etapa: **1 — design system e taxonomia**
+> (`docs/specs/plano-de-implementacao.md`).
 
 > **Pendência de segurança aberta (P1).** Há uma chave real do YouTube Data API
 > no histórico Git, herdada do repositório de origem. Rotacioná-la no Google
@@ -42,7 +43,8 @@ FORA do OneDrive** (ADR-002) — leia o rito e o estado direto na vault:
 ## Ordem de leitura desta frente
 
 1. **Este arquivo** — limites e estado.
-2. **`docs/adr/`** — as decisões da reescrita (ler o 0002 primeiro).
+2. **`docs/adr/`** — as decisões da reescrita (ler o 0002 primeiro; o 0004
+   registra por que o `vite.config.ts` diverge da letra do ADR-004).
 3. **`docs/specs/`** — arquitetura-alvo, modelo de dados, design system, plano.
 4. **`docs/QUESTIONS.md`** — o que segue sem decisão. **Não invente resposta.**
 5. `docs/ARCHITECTURE.md` e `docs/MODELO_DE_DADOS.md` — **a base legada**, úteis
@@ -54,21 +56,63 @@ FORA do OneDrive** (ADR-002) — leia o rito e o estado direto na vault:
 
 | | Legado (demonstração) | Base nova |
 |---|---|---|
-| Onde | raiz: `server/`, `src/`, `public/` | `backend/`, `frontend/`, `docker/` (a criar — etapa 0 do plano) |
+| Onde | raiz: `server/`, `src/`, `public/` | `backend/`, `frontend/`, `docker/` |
 | Stack | Express 5 + SQLite + React 19 sobre CRA | Django 5 + PostgreSQL 16 + React 19 sobre Vite/TS |
-| Porta | web **8003** (compose `lilp-recpsp`) | app **8004** · Postgres **5434** · Vite **5173** (dev) |
+| Porta | web **8003** (compose `lilp-recpsp`) | app **8004** · Postgres **5434** · Vite **5173** (compose `lilp-recpsp-nova`) |
+| Comandos | `make demo-*` | `make up`, `make test`, `make lint`… |
 | Regra | **congelado** — só correção de segurança crítica | todo o trabalho novo |
 | Banco | SQLite descartável (só demonstração) | modelo novo, sem migração de dados |
 | Fim | some da árvore no corte (etapa 6) | assume a 8003 no corte |
 
-## Comandos do legado (enquanto a demonstração existir)
+## Comandos da base nova
 
-- `make setup` — 1ª vez: valida `.env` (falha sem `JWT_SECRET`), constrói e sobe.
-- `make up` / `down` / `logs` / `shell` · `make test` (5 de front + 39 de API,
-  requer Node 18+ no host) · `make clean` — **apaga o volume** e o banco demo.
-- Dev sem Docker: `npm run server` (API 3001) + `REACT_APP_API_URL=http://localhost:3001/api npm run dev` (React 3000).
-- Na etapa 0 os alvos do legado ganham o prefixo `demo-` e os verbos padrão
-  (ADR-008) passam à base nova.
+Pré-requisito único: Docker. **Toda ferramenta roda dentro do contêiner**
+(ADR-008) — não instale Python, Node nem PostgreSQL na máquina, e não rode
+`pytest`, `npm` ou `ruff` no host: o resultado não vale.
+
+- `make setup` — 1ª vez: valida o `.env` (falha sem `RECPSP_DB_PASSWORD`),
+  constrói e sobe os três serviços.
+- `make up` / `down` / `logs` / `ps` / `shell` / `shell-front`.
+- `make test` — pytest + Vitest. `make lint` — ruff, mypy (estrito), tsc,
+  ESLint, guardião de tokens. `make format` — ruff.
+- `make saude` — confere API, CSP da página raiz e o repasse `/api` do Vite.
+- `make migrate` / `makemigrations` / `superusuario`.
+- `make build-app` (build do front + `check --deploy`) · `make auditoria` ·
+  `make imagem` · `make ci` (o mesmo laço da esteira) · `make a11y-check`
+  (vazio até a etapa 1).
+- `make clean` — **apaga os volumes**, inclusive o banco de desenvolvimento.
+
+### Armadilhas da base nova (aprendidas na etapa 0)
+
+- **`node_modules` mora num volume**, senão o monte do host o encobre. Depois de
+  mexer em `frontend/package.json`, rode `make build` — ele reconstrói a imagem
+  **e renova o volume**. Sem isso o contêiner segue com a instalação antiga e a
+  falha é silenciosa.
+- **O Vite sobe a árvore procurando configuração de PostCSS** e acha a do
+  legado, que carrega binário do macOS dentro de contêiner Linux. Por isso
+  `vite.config.ts` declara `css.postcss` no lugar, e o compose esconde
+  `/app/node_modules` e `/app/build` do host com volumes vazios.
+- **Dentro do contêiner os servidores ligam em `0.0.0.0`** — é a única forma de
+  o encaminhamento de porta alcançá-los. O loopback é garantido pela publicação
+  `127.0.0.1:<porta>` no compose. Ver `docs/adr/0004-loopback-em-conteiner.md`.
+- **Casar as versões de `vite` e `vitest`.** Um `vitest` que fixa major anterior
+  do Vite aninha uma segunda cópia e o `tsc` reprova com dois conjuntos de tipos
+  incompatíveis.
+- **`from .base import *` traz a referência dos dicionários.** Alterar
+  `DATABASES` ou `STORAGES` no lugar, em `prod.py`, contamina quem mais os
+  segura. Monte um dicionário novo.
+- O lock do front é gerado **em contêiner**:
+  `docker run --rm -v "$PWD/frontend":/work -w /work node:22-bookworm-slim npm install --package-lock-only`.
+
+## Comandos da demonstração herdada (congelada)
+
+Os mesmos verbos sob o prefixo `demo-`: `demo-setup` (falha sem `JWT_SECRET`),
+`demo-up`, `demo-down`, `demo-logs`, `demo-ps`, `demo-shell`, `demo-test`
+(5 de front + 39 de API, requer Node 18+ no host), `demo-clean` (**apaga o
+volume** e o banco demo).
+
+Dev sem Docker: `npm run server` (API 3001) +
+`REACT_APP_API_URL=http://localhost:3001/api npm run dev` (React 3000).
 
 ### Armadilhas do legado que ainda mordem
 

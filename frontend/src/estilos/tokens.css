@@ -1,0 +1,93 @@
+/*
+ * Tokens do design system da RECPSP.
+ *
+ * Fonte unica de valor de cor, tipografia, espaco e forma. Contrato em
+ * `docs/specs/design-system.md` (implementacao do ADR-007 transversal).
+ *
+ * REGRA DE LINT: nenhum valor hexadecimal existe fora deste arquivo. Quem
+ * precisa de cor usa `var(--sp-*)`. Vale para o front e para as paginas
+ * servidas pelo Django, que leem este mesmo arquivo.
+ *
+ * Etapa 0 (fundacao) semeia os tokens. A etapa 1 completa o design system —
+ * as fontes hospedadas localmente e os componentes de base.
+ */
+
+:root {
+  /* --- Cor: contrato do ADR-007 ------------------------------------------ */
+
+  /* Marca. So em nao-texto: preenchimento, icone, borda, faixa.
+     Com texto branco da 4,38:1 e reprova AA — por isso existe o token de acao. */
+  --sp-red: #ed1c24;
+  /* Acao: texto vermelho e fundo de botao primario (6,49:1). */
+  --sp-red-dark: #bd0e15;
+  /* Botao primario sob o ponteiro. */
+  --sp-red-darker: #9b0b11;
+
+  /* Link, foco e botao secundario (8,03:1). */
+  --sp-blue: #034ea2;
+  /* Sucesso: so nao-texto ou texto grande. */
+  --sp-green: #0b9247;
+  /* Secundaria GESP. Nunca com texto branco. */
+  --sp-yellow: #fbb900;
+  /* Faixas escuras e rodape. */
+  --sp-petrol: #233254;
+
+  --sp-gray-light: #f5f5f5;
+  --sp-gray-medium: #bfbfbf;
+  /* Texto auxiliar GRANDE apenas. */
+  --sp-gray-dark: #808080;
+
+  --sp-white: #ffffff;
+
+  /* Neutros de texto da RECPSP, todos >= 4,5:1 sobre branco. */
+  --sp-text: #1d1d1b; /* corpo — 16,0:1 */
+  --sp-text-secondary: #6b7280; /* metadados e legendas — 4,83:1 */
+
+  /* --- Papeis semanticos -------------------------------------------------- */
+
+  --sp-fundo: var(--sp-white);
+  --sp-fundo-alternado: var(--sp-gray-light);
+  --sp-borda: var(--sp-gray-medium);
+  --sp-link: var(--sp-blue);
+  --sp-foco: var(--sp-blue);
+
+  /* --- Tipografia --------------------------------------------------------- */
+
+  /* Fontes hospedadas no proprio servidor (ADR-007: sem requisicao ao Google
+     por visitante). Os arquivos `@font-face` entram na etapa 1; ate la valem as
+     reservas do sistema. */
+  --sp-fonte-corpo: Verdana, Geneva, sans-serif;
+  --sp-fonte-titulo: Montserrat, Verdana, Geneva, sans-serif;
+
+  /* Escala fechada. Nada abaixo de 12px (o legado usava 10 e 11). */
+  --sp-texto-xs: 0.75rem; /* 12px */
+  --sp-texto-sm: 0.875rem; /* 14px — base */
+  --sp-texto-md: 1rem; /* 16px */
+  --sp-texto-lg: 1.125rem; /* 18px */
+  --sp-texto-xl: 1.25rem; /* 20px */
+  --sp-texto-2xl: 1.5rem; /* 24px */
+  --sp-texto-3xl: 1.875rem; /* 30px */
+
+  --sp-altura-linha: 1.5;
+
+  /* --- Forma: tres raios, duas sombras ------------------------------------ */
+
+  --sp-raio-sm: 4px; /* campos, selos */
+  --sp-raio-md: 8px; /* cartoes, botoes */
+  --sp-raio-full: 9999px; /* avatar, pilula */
+
+  --sp-sombra-cartao: 0 1px 3px rgb(0 0 0 / 0.1), 0 1px 2px rgb(0 0 0 / 0.06);
+  --sp-sombra-cartao-hover: 0 4px 6px rgb(0 0 0 / 0.1), 0 2px 4px rgb(0 0 0 / 0.06);
+
+  /* --- Espaco: escala de 4px; um container de pagina ---------------------- */
+
+  --sp-espaco-1: 0.25rem;
+  --sp-espaco-2: 0.5rem;
+  --sp-espaco-3: 0.75rem;
+  --sp-espaco-4: 1rem;
+  --sp-espaco-6: 1.5rem;
+  --sp-espaco-8: 2rem;
+  --sp-espaco-12: 3rem;
+
+  --sp-largura-pagina: 72rem; /* equivalente ao `max-w-6xl` */
+}

@@ -18,8 +18,8 @@
 
 **Entra:** esqueleto do repositório (`backend/` Django com as sete apps vazias,
 `frontend/` Vite + TypeScript); `docker/docker-compose.dev.yml` (app 8004,
-Postgres 5434, Vite 5173 — **tudo loopback**, inclusive o Vite, cujo padrão de
-fábrica é `0.0.0.0`); `.devcontainer/` apontando para o serviço de dev (ADR-008);
+Postgres 5434, Vite 5173 — **tudo publicado em loopback no host**, o que em
+contêiner é o que de fato garante o loopback: [ADR 0004](../adr/0004-loopback-em-conteiner.md)); `.devcontainer/` apontando para o serviço de dev (ADR-008);
 Makefile com os verbos novos (`up · down · test · lint · a11y-check · shell ·
 logs`) e os do legado sob prefixo `demo-`; settings por ambiente com segredos
 fail-loud; CSP estrita; pre-commit (ruff, mypy, ESLint, tsc); CI nova (lint →
