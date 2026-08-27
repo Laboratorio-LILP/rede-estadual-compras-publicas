@@ -1,4 +1,5 @@
 // Os tipos de `test` vem do proprio `defineConfig` de `vitest/config`.
+import tailwindcss from "@tailwindcss/postcss";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
@@ -39,8 +40,12 @@ export default defineConfig({
     // procurando configuracao de PostCSS e acha a da demonstracao herdada, que
     // carrega um binario compilado para o macOS do host dentro de um conteiner
     // Linux. E o modo de falha que motivou o ADR-008.
-    // O Tailwind da base nova entra aqui na etapa 1, com o design system.
-    postcss: { plugins: [] },
+    //
+    // O Tailwind da base nova entra AQUI, e nao por `postcss.config.js` na
+    // raiz do front: um arquivo la' faria o Vite voltar a subir a arvore.
+    // Nao existe `tailwind.config.js` — na versao 4 a configuracao e' CSS, e
+    // mora em `src/estilos/tema.css`, que mapeia os tokens do ADR-007.
+    postcss: { plugins: [tailwindcss()] },
   },
   server: {
     // Padrao loopback (ADR-004). Dentro do conteiner o Compose troca por
@@ -50,6 +55,20 @@ export default defineConfig({
     host: process.env.RECPSP_WEB_HOST ?? "127.0.0.1",
     port: Number(process.env.RECPSP_WEB_PORT ?? 5173),
     strictPort: true,
+    // O Vite recusa requisicao cujo cabecalho `Host` ele nao conheca — e' a
+    // protecao contra rebind de DNS, e o padrao (so `localhost` e literais de
+    // IP) esta certo. De dentro da rede do Compose, porem, o navegador do
+    // `make a11y-check` chega por `http://frontend:5173`, e a protecao barra.
+    //
+    // A lista vem do ambiente e nasce VAZIA: quem precisa, declara. Nunca
+    // `true`, que desligaria a protecao inteira. O Compose acrescenta so
+    // `frontend`, que e' nome de servico e so resolve dentro da rede privada
+    // do projeto. Este servidor nao existe em producao — la' o front e' um
+    // build estatico servido pelo Django.
+    allowedHosts: (process.env.RECPSP_WEB_ALLOWED_HOSTS ?? "")
+      .split(",")
+      .map((nome) => nome.trim())
+      .filter(Boolean),
     // Volume montado no macOS nao entrega evento de arquivo de forma confiavel.
     watch: process.env.RECPSP_WEB_POLLING === "1" ? { usePolling: true } : undefined,
     proxy: {

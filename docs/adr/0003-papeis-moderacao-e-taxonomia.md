@@ -31,12 +31,18 @@ A taxonomia da BDLP foi desenhada para reuso na Rede. São **três eixos indepen
 |---|---|---|
 | Plano de Contratações Anual (PCA) | — | — |
 | Ciclo Completo da Contratação | — | — |
-| Planejamento / Fase Preparatória | ETP · TR · Gestão de Riscos · Pesquisa de Preços | Mapa de Riscos · Matriz de Alocação de Riscos |
-| Seleção do Fornecedor | Licitação · Contratação Direta · Procedimentos Auxiliares | Concorrência · Pregão · Leilão · Diálogo Competitivo · Inexigibilidade · Emergência · Dispensa por Valor · Outros incisos |
+| Planejamento/Fase Preparatória | ETP · TR · Gestão de Riscos · Pesquisa de Preços | *(sob Gestão de Riscos)* Mapa de Riscos · Matriz de Alocação de Riscos |
+| Seleção do Fornecedor | Licitação · Contratação Direta · Procedimentos Auxiliares | *(sob Licitação)* Concorrência · Pregão · Leilão · Diálogo Competitivo — *(sob Contratação Direta)* Inexigibilidade · Emergência - Inciso VIII · Dispensa por Valor (Art 75 - incisos I e II) · Contratação Direta outros incisos — *(sob Procedimentos Auxiliares)* Credenciamento · Registro de Preços (RP) · Pré-qualificação · PMI · Registro Cadastral |
 | Gestão Contratual | Gestão de Contratos · Fiscalização de Contratos | — |
 | Conteúdos Transversais | — | — |
 
+São **30 termos**: 6 macroetapas, 9 subcategorias e 15 microcategorias.
+
 A ordem segue a Lei 14.133/2021: o PCA abre o ciclo anual (art. 12, VII), depois a fase preparatória (art. 18), a seleção (arts. 17, 28 e 72 a 78) e a gestão contratual (art. 117 e seguintes).
+
+> **Correção de 27/08/2026 (execução da etapa 1).** A versão original desta tabela omitia as cinco microcategorias de *Procedimentos Auxiliares* e não dizia sob qual subcategoria cada microcategoria fica. O critério de pronto da etapa 1 é "os três eixos **idênticos aos da BDLP**", e a fonte canônica (`07-categories.sql`) as tem — então elas entram, e a tabela foi corrigida na mesma sessão, conforme a regra do `CLAUDE.md`. A implementação está em `apps/taxonomia/management/commands/seed_taxonomia.py`, com a lista canônica escrita uma segunda vez, à mão, em `backend/tests/test_taxonomia.py`.
+>
+> **Capitalização.** Na BDLP o eixo processual vem em caixa alta, herança da interface do Nou-Rau. Na RECPSP os termos usam a grafia desta tabela, que é a que vai para a tela. A identidade com a Biblioteca é preservada e **provada por teste**: `nome.upper() == termo_da_bdlp.upper()`, para os 30 termos. Assunto e natureza vão verbatim, inclusive "Catálogo eletrônico de Padronização" e "Compras Centralizadas/compartilhadas", que são assim na origem.
 
 **Eixo 2 — Assunto.** Os 14 da BDLP: Aspectos Jurídicos e Regulatórios · Catálogo Eletrônico de Padronização · Compras Centralizadas/Compartilhadas · Controle, Auditoria e Combate à Corrupção · Gestão de Competências · Governança · Inovação e Tecnologia · Integridade · Logística e Gestão de Suprimentos · Micro e Pequenas Empresas · Sanções Administrativas · Sustentabilidade e ODS · Transparência · Uso de Sistemas.
 

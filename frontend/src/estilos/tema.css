@@ -1,0 +1,105 @@
+/*
+ * Tema do Tailwind — a ponte entre os tokens do ADR-007 e as classes de
+ * utilidade.
+ *
+ * Na versao 4 do Tailwind a configuracao e' CSS: nao existe
+ * `tailwind.config.js`. O registro do plugin de PostCSS fica em
+ * `vite.config.ts` (e nao em arquivo na raiz, senao o Vite sobe a arvore e
+ * acha a configuracao da demonstracao herdada — ver o comentario de la').
+ *
+ * ## A decisao que da' forca ao design system: zerar as escalas de fabrica
+ *
+ * `--color-*: initial` apaga a paleta inteira do Tailwind. Depois disso,
+ * `bg-red-500`, `text-gray-400` e `border-gray-200` deixam de existir — e um
+ * `className` com qualquer um deles nao pinta nada, o que aparece na hora.
+ *
+ * Sem isso, o guardiao de tokens (`verificar-tokens.mjs`) seria contornavel
+ * por acidente: ele proibe hexadecimal, mas `text-gray-400` nao tem
+ * hexadecimal nenhum — e foi exatamente essa classe, com 2,54:1, que apareceu
+ * 113 vezes no legado. A auditoria de 27/08 achou 268 cores cruas e 22 botoes
+ * em 15 formas; nenhuma dessas cores estava proibida por regra. Agora estao.
+ *
+ * O mesmo vale para tipografia, raio e sombra: a escala e' a do contrato, e o
+ * que estiver fora dela nao existe. Espaco e pontos de quebra ficam nos
+ * padroes do Tailwind, porque o proprio design system os adota (escala de
+ * 4px; 640/768/1024).
+ */
+
+/*
+ * Onde procurar classes. Explicito de proposito: a deteccao automatica parte
+ * do diretorio de trabalho, que em conteiner nao e' o que se imagina.
+ * A pagina raiz servida pelo Django NAO entra — ela usa CSS proprio e precisa
+ * funcionar sem passo de build.
+ */
+@source "../";
+
+@theme {
+  /* --- Cor ---------------------------------------------------------------- */
+
+  --color-*: initial;
+
+  --color-transparente: transparent;
+  --color-atual: currentColor;
+
+  /* Paleta do ADR-007. */
+  --color-branco: var(--sp-white);
+  --color-marca: var(--sp-red);
+  --color-acao: var(--sp-red-dark);
+  --color-acao-forte: var(--sp-red-darker);
+  --color-link: var(--sp-blue);
+  --color-link-forte: var(--sp-blue-dark);
+  --color-sucesso: var(--sp-green);
+  --color-sucesso-forte: var(--sp-green-dark);
+  --color-destaque: var(--sp-yellow);
+  --color-petroleo: var(--sp-petrol);
+
+  --color-cinza-claro: var(--sp-gray-light);
+  --color-cinza-medio: var(--sp-gray-medium);
+  --color-cinza-escuro: var(--sp-gray-dark);
+  --color-cinza-forte: var(--sp-gray-darker);
+  --color-cinza-superficie: var(--sp-gray-surface);
+
+  /* Papeis de superficie e texto. */
+  --color-texto: var(--sp-text);
+  --color-texto-secundario: var(--sp-text-secondary);
+  --color-fundo: var(--sp-fundo);
+  --color-fundo-alternado: var(--sp-fundo-alternado);
+  --color-borda: var(--sp-borda);
+  --color-foco: var(--sp-foco);
+
+  /* --- Tipografia --------------------------------------------------------- */
+
+  --font-*: initial;
+  --font-corpo: var(--sp-fonte-corpo);
+  --font-titulo: var(--sp-fonte-titulo);
+
+  --text-*: initial;
+  --text-xs: var(--sp-texto-xs);
+  --text-sm: var(--sp-texto-sm);
+  --text-md: var(--sp-texto-md);
+  --text-lg: var(--sp-texto-lg);
+  --text-xl: var(--sp-texto-xl);
+  --text-2xl: var(--sp-texto-2xl);
+  --text-3xl: var(--sp-texto-3xl);
+
+  --font-weight-*: initial;
+  --font-weight-normal: var(--sp-peso-normal);
+  --font-weight-semi: var(--sp-peso-semi);
+  --font-weight-negrito: var(--sp-peso-negrito);
+
+  /* --- Forma: tres raios, duas sombras ------------------------------------ */
+
+  --radius-*: initial;
+  --radius-sm: var(--sp-raio-sm);
+  --radius-md: var(--sp-raio-md);
+  --radius-full: var(--sp-raio-full);
+
+  --shadow-*: initial;
+  --shadow-cartao: var(--sp-sombra-cartao);
+  --shadow-cartao-hover: var(--sp-sombra-cartao-hover);
+
+  /* --- Largura de conteudo ------------------------------------------------ */
+
+  /* Um container de pagina, nao cinco larguras para o mesmo papel. */
+  --container-pagina: var(--sp-largura-pagina);
+}

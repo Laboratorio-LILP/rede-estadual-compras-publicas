@@ -19,8 +19,18 @@ const RAIZ_DO_REPO = resolve(AQUI, "..", "..");
 /** Onde procurar. Diretorio ausente e ignorado sem erro. */
 const ALVOS = ["frontend/src", "backend/apps"];
 
-/** O unico arquivo autorizado a conter hexadecimal. */
+/** O arquivo dono das cores. */
 const ARQUIVO_DE_TOKENS = "frontend/src/estilos/tokens.css";
+
+/**
+ * Os unicos arquivos autorizados a conter hexadecimal.
+ *
+ * O segundo e' o teste do proprio arquivo de tokens: ele afirma que
+ * `--sp-red-dark` vale `#bd0e15`, o valor que o ADR-007 fixa. Prender o
+ * contrato exige escrever o numero — e' o ponto do teste, nao uma brecha.
+ * Nenhum outro `.test.ts` entra nesta lista.
+ */
+const AUTORIZADOS = new Set([ARQUIVO_DE_TOKENS, "frontend/src/estilos/tokens.test.ts"]);
 
 const EXTENSOES = new Set([".css", ".ts", ".tsx", ".js", ".jsx", ".html", ".svg"]);
 const IGNORAR = new Set(["node_modules", "dist", "coverage", "__pycache__", "migrations"]);
@@ -49,7 +59,7 @@ const achados = [];
 for (const alvo of ALVOS) {
   for await (const caminho of arquivos(resolve(RAIZ_DO_REPO, alvo))) {
     const relativo = relative(RAIZ_DO_REPO, caminho);
-    if (relativo === ARQUIVO_DE_TOKENS) continue;
+    if (AUTORIZADOS.has(relativo)) continue;
 
     const linhas = (await readFile(caminho, "utf8")).split("\n");
     linhas.forEach((linha, indice) => {

@@ -51,3 +51,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+
+# Laco de acessibilidade (etapa 1)
+/a11y/node_modules
+/a11y/test-results
+/a11y/playwright-report
+/a11y/blob-report

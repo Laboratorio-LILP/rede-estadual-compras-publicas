@@ -28,6 +28,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Testes podem usar `assert` (S101) e valores fixos de teste.
 "tests/*" = ["S101", "S105", "S106"]
+# RUF012 pede `ClassVar` em atributo de classe mutavel. O `Meta` do Django nao e'
+# dataclass: `ordering`, `indexes` e `constraints` sao listas por contrato da
+# propria ferramenta, e anota-las seria ruido que ninguem escreve.
+"apps/*/models.py" = ["RUF012"]
 # Os arquivos de settings importam com `*` por convencao do Django.
 "config/settings/*" = ["F401", "F403", "F405"]
 

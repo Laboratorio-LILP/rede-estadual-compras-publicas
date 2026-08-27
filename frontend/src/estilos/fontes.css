@@ -1,0 +1,67 @@
+/*
+ * Fontes hospedadas no proprio servidor (ADR-007 transversal).
+ *
+ * Nenhuma requisicao ao Google por visitante: LGPD — a fonte de terceiro
+ * entrega o IP de quem navega a um servidor fora do Estado — e VPN, porque a
+ * homologacao roda em rede fechada, onde uma fonte remota simplesmente nao
+ * carrega. A CSP declara `font-src 'self'`, o que torna a regra verificavel:
+ * uma fonte externa e' bloqueada pelo navegador, nao apenas desaconselhada.
+ *
+ * Este arquivo mora ao lado de `tokens.css` de proposito. Os dois consumidores
+ * leem o MESMO diretorio: o build do Vite (por importacao) e o Django, que
+ * serve `frontend/src/estilos/` como diretorio de estaticos e o copia para a
+ * imagem de producao. Nao existe uma segunda copia da fonte.
+ *
+ * ## As duas familias, e por que so uma tem arquivo
+ *
+ * **Montserrat** (titulos e rotulos) e' software livre sob a SIL Open Font
+ * License 1.1 — redistribuivel, e por isso versionada aqui. Origem:
+ * `@fontsource/montserrat@5.3.0`, subconjunto `latin`, pesos 400/600/700,
+ * baixado em 27/08/2026. A licenca esta em `fontes/LICENSE-Montserrat-OFL.txt`.
+ *
+ * **Verdana** (corpo) NAO tem arquivo aqui, e nao pode ter: e' fonte
+ * proprietaria da Microsoft e a licenca proibe redistribui-la. Tambem nao
+ * precisa — ja' esta instalada no sistema de praticamente toda maquina que vai
+ * abrir a plataforma, e uma fonte do sistema nao gera requisicao nenhuma. O
+ * objetivo do ADR-007 (zero requisicao a terceiro) fica cumprido pelos dois
+ * caminhos. A divergencia esta registrada em `docs/specs/design-system.md`.
+ *
+ * ## Escolhas
+ *
+ * - `font-display: swap` — o texto aparece na reserva e troca quando a fonte
+ *   chega. Em rede lenta, ler com a fonte errada e' melhor que nao ler.
+ * - So `woff2`: todo navegador o suporta desde 2016. Quem for mais antigo cai
+ *   na reserva Verdana, que e' legivel.
+ * - So o subconjunto `latin` (U+0000-00FF + pontuacao geral): cobre todo o
+ *   portugues, o travessao e as aspas curvas. 18 KB por peso.
+ */
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fontes/montserrat-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./fontes/montserrat-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fontes/montserrat-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
