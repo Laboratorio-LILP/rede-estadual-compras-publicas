@@ -2,7 +2,7 @@
 
 Rede Estadual de Compras Públicas de São Paulo (RECPSP), Projeto 3 do Portfólio 2026 do LILP. Este arquivo é a camada de **Instruções da frente** para o Claude Code; viaja com o repositório.
 
-**Leia a seção "Divergências do padrão LILP" antes de mexer no código.** Este repo veio de fora do laboratório e ainda não passou pelo endurecimento que a BDLP e a PESCP já sofreram.
+**Leia a seção "Divergências do padrão LILP" e o mapa da seção "Documentação da frente" antes de mexer no código.** Este repo veio de fora do laboratório e ainda não passou pelo endurecimento que a BDLP e a PESCP já sofreram.
 
 > **Pendência de segurança aberta.** Há uma chave real do YouTube Data API no histórico Git, herdada do repositório de origem. Ela precisa ser rotacionada no Google Cloud. Ver a seção **Segredos**, no fim deste arquivo.
 
@@ -26,6 +26,25 @@ O rito transversal vive em `LILP/CLAUDE.md` na árvore OneDrive. **Este clone fi
 
 Vault atualizada em 26/08/2026: o `Portfólio.md` registra este repositório como o oficial da frente, e o ADR-002 ganhou entrada sobre o caminho canônico dos clones e sobre esta importação.
 
+## Documentação da frente — o que ler antes de mexer
+
+`docs/README.md` é a porta de entrada da documentação e define a ordem de leitura completa. O mapa:
+
+| Documento | Responde |
+|---|---|
+| `docs/requisitos/RECPSP - Documento de Requisitos da Plataforma.md` | O que a plataforma **deve** fazer: 46 RF + 19 RNF com prioridade MoSCoW e fonte rastreada, escopo da v1 (seção 8), pontos em aberto (seção 12) |
+| `docs/ARCHITECTURE.md` | Como o sistema está montado: ordem do boot, mapa de regiões do `server/index.js`, onde encaixar código novo, regras para sessões paralelas (seção 10) |
+| `docs/MODELO_DE_DADOS.md` | As 18 tabelas e o protocolo de alteração de schema (não há migrations) |
+| `docs/QUESTIONS.md` | O que ainda **não** foi decidido, e quem decide |
+| `docs/CHECKLIST-MODELO.md` | O placar vivo das pendências da frente |
+
+Regras de uso, para qualquer sessão:
+
+- **Funcionalidade nova nasce de um requisito.** Antes de implementar, localize o RF/RNF no Documento de Requisitos e cite o ID no commit. A prioridade da v1 está na seção 8: capacitação primeiro, por exigência da coordenação.
+- **Decisão em aberto não se inventa.** Se a implementação exigir uma decisão que não está registrada, registre a pergunta em `docs/QUESTIONS.md` e pare — não deduza da implementação atual, que em vários pontos é herança de protótipo, não decisão.
+- **Requisitos dizem o "deve ser"; o código diz o "é".** Para o estado atual valem o código, `ARCHITECTURE.md`/`MODELO_DE_DADOS.md` e o checklist — a coluna as-is do Documento de Requisitos é fotografia da data da versão dele e só se atualiza no rito de republicação.
+- **O `.md` dos requisitos é a fonte.** O `.docx` e o `.pdf` na mesma pasta são renderizações institucionais da mesma versão: alterou requisito, altere o `.md` e siga o rito de republicação do `docs/README.md`. Nunca edite o `.docx` diretamente.
+
 ## O que é
 
 Fórum e portal de capacitação da rede de compradores públicos do Estado. **Monólito Node**: uma única `package.json` cobre front e back.
@@ -36,7 +55,7 @@ Fórum e portal de capacitação da rede de compradores públicos do Estado. **M
 
 Domínio: 18 tabelas (`users`, `topics`, `posts`, `categories`, `tags`, `messages`, `notifications`, `resources`, enquetes, curtidas, progresso de curso, especialidades). 57 rotas sob `/api`, mais a rota curinga do SPA. Papéis: `admin`, `moderator`, `user`, mais especialidade por categoria (`user_specialties`).
 
-Funcionalidades ativas: fórum com moderação prévia (tópico entra pendente e um admin aprova), mensagens diretas, notificações, enquetes, trilha de capacitação com importação de playlists do YouTube, calendário de eventos, aceite de termos no primeiro acesso.
+Funcionalidades ativas: fórum com moderação prévia **parcial** (só tópico com imagem ou vídeo entra pendente; moderar todo tópico é decisão em aberto — RF-FOR-03 e `docs/QUESTIONS.md`, pergunta 11), mensagens diretas, notificações, enquetes, trilha de capacitação com importação de playlists do YouTube, calendário de eventos, aceite de termos no primeiro acesso.
 
 ## Onde isto roda
 

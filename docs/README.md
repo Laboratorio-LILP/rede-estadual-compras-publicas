@@ -10,6 +10,7 @@ lê nesta ordem:
 | 3 | [`MODELO_DE_DADOS.md`](MODELO_DE_DADOS.md) | o que existe no banco e como alterá-lo |
 | 4 | [`QUESTIONS.md`](QUESTIONS.md) | o que ainda **não** foi decidido — não invente resposta |
 | 5 | [`requisitos/`](requisitos/) | o que a plataforma deve fazer (46 RF + 19 RNF) |
+| 6 | [`CHECKLIST-MODELO.md`](CHECKLIST-MODELO.md) | o placar vivo das pendências da frente |
 
 O `README.md` da raiz cobre instalação e comandos; este cobre entendimento.
 
@@ -22,6 +23,10 @@ versão, para circulação institucional.
 Regra para não haver duas verdades: alterou o requisito, altere o `.md`,
 regenere `.docx` e `.pdf` e republique a cópia da pasta da frente no OneDrive,
 que é onde a equipe lê. Nunca edite o `.docx` diretamente.
+
+Estado em 26/08/2026: o `.md` está na v1.1 (as-is sincronizado com as rodadas
+do dia); o `.docx` e o `.pdf` ainda renderizam a v1.0 — regenerar e republicar
+na próxima circulação institucional.
 
 ## Manutenção
 
@@ -38,8 +43,8 @@ decidido migra para a seção "Decididas", com data e origem.
 
 `DEPLOY.md` (passo a passo para a TI subir em homologação), `adr/` (decisões da
 frente, a começar pelo banco de produção), `openapi.yaml` (contrato das 57 rotas),
-`IDENTIDADE_VISUAL.md`, `ACESSIBILIDADE.md`, `LGPD.md`, `SEED_E_CONTEUDO.md`,
-`specs/` e `CHECKLIST-MODELO.md`. A ordem recomendada e a justificativa estão no
+`IDENTIDADE_VISUAL.md`, `ACESSIBILIDADE.md`, `LGPD.md`, `SEED_E_CONTEUDO.md`
+e `specs/`. A ordem recomendada e a justificativa estão no
 prompt da próxima sessão, na pasta da frente.
 
 Os ADRs transversais do laboratório vivem na vault

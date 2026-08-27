@@ -130,14 +130,18 @@ Roda **uma única vez**, guardado por `SELECT id FROM users WHERE role = 'admin'
 Se já existe um admin, o bloco inteiro é pulado — mudar categorias ou tags no
 código **não** altera um banco já semeado.
 
-1. **Usuário `admin`** com credencial fixa em código versionado (ver
-   `CLAUDE.md`, seção Divergências — pendência de segurança).
+1. **Usuário `admin`** — fora de produção, com a credencial fixa de dev
+   (`admin123`); com `NODE_ENV=production`, com a senha de `ADMIN_PASSWORD`
+   ou uma sorteada e impressa uma única vez no log do boot (rodada de
+   26/08/2026 — ver `CLAUDE.md`, seção Divergências).
 2. **11 categorias**: Planejamento, Obras Públicas, Contratação Direta,
    Sustentabilidade, Documentos, Gestão Contratual, Licitação, Inovação,
    Central de Compras, Governança, Capacitação.
 3. **10 tags** iniciais.
 4. **5 usuários de demonstração** com senha fixa, mais 15 tópicos, respostas,
-   curtidas e votos — conteúdo fictício, com órgãos de outros estados.
+   curtidas e votos — conteúdo fictício, com órgãos de outros estados. Em
+   produção este bloco só roda com `SEED_DEMO_DATA=1`; em dev entra por
+   padrão (`SEED_DEMO_DATA=0` desliga).
 5. **14 cursos** inseridos em `resources` (ENAP, Escola Virtual, YouTube) —
    este bloco roda **fora** do guarda do admin, com `INSERT OR IGNORE`.
 6. **3 playlists do YouTube** importadas no boot, só se `resources` estiver
