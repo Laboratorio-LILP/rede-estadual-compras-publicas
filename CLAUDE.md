@@ -88,6 +88,9 @@ FORA do OneDrive** (ADR-002) — leia o rito e o estado direto na vault:
 
 - **Uma etapa do plano por vez**, com commit ao fim. Nada fica preso em worktree
   — a lição de 26/08 (6 commits presos num worktree travado) não se repete.
+- **Funcionalidade nova nasce de um requisito.** Localize o RF/RNF no Documento
+  de Requisitos e cite o ID na mensagem de commit. Decisão em aberto não se
+  inventa: registre em `docs/QUESTIONS.md` e pare.
 - Especificação diverge da implementação? **A implementação consciente vence e o
   spec é corrigido na mesma sessão.**
 - Decisão nova com peso estrutural → ADR em `docs/adr/` (da frente) ou na vault

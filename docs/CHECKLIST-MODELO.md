@@ -46,8 +46,9 @@ a reescrita torna propriedade da base nova.
   ADR-007 verde em toda página pública (o piso agora existe; falta medir).
 - [ ] `DEPLOY.md` quando o caminho de homologação estiver montado (esteira — TI).
 - [ ] Confirmar com a coordenação o titular do copyright da LICENSE (MIT).
-- [ ] Documento de Requisitos v1.1 — a seção 7 (as-is) ficou datada com a
-  reescrita; regenerar `.md` → `.docx`/`.pdf` e republicar no OneDrive.
+- [ ] Documento de Requisitos v1.2 — o `.md` chegou à v1.1 em 26/08 (as-is das
+  rodadas do dia), mas a reescrita datou o as-is de novo; atualizar o `.md`,
+  regenerar `.docx`/`.pdf` (ainda na v1.0) e republicar no OneDrive.
 
 ## Fechadas no legado em 26/08 (registro)
 

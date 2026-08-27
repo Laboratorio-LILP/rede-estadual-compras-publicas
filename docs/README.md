@@ -17,8 +17,9 @@ lê nesta ordem:
 O `.md` é a fonte; `.docx` e `.pdf` são renderizações para circulação
 institucional. Alterou o requisito: altere o `.md`, regenere os outros dois e
 republique a cópia da pasta da frente no OneDrive. Nunca edite o `.docx` direto.
-**Pendência:** a seção 7 (as-is) ficou datada com a decisão de reescrita —
-v1.1 registrada no checklist.
+**Estado:** o `.md` está na v1.1 (as-is sincronizado com as rodadas de 26/08);
+`.docx` e `.pdf` ainda renderizam a v1.0. A decisão de reescrita (27/08) datou o
+as-is de novo — v1.2 + regeneração pendentes, registradas no checklist.
 
 ## Manutenção
 
