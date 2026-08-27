@@ -4,14 +4,15 @@ Rede Estadual de Compras Públicas de São Paulo (RECPSP), Projeto 3 do Portfól
 2026 do LILP. Este arquivo é a camada de **Instruções da frente**; viaja com o
 repositório.
 
-> **Estado da frente (27/08/2026): etapa 0 concluída — a fundação da base nova
-> está de pé.** Este repositório carrega **duas gerações**: a base herdada do
-> protótipo do Eduardo (Node/Express/SQLite — raiz, `server/`, `src/`), que roda
-> como **demonstração congelada**, e a base nova (Django 5 + PostgreSQL 16 +
-> React/Vite/TypeScript), em `backend/`, `frontend/` e `docker/`. **Nenhuma
-> funcionalidade nova entra no legado** — nele, só correção de segurança crítica.
-> Próxima etapa: **1 — design system e taxonomia**
-> (`docs/specs/plano-de-implementacao.md`).
+> **Estado da frente (27/08/2026): etapa 1 concluída — design system e
+> taxonomia de pé.** Este repositório carrega **duas gerações**: a base herdada
+> do protótipo do Eduardo (Node/Express/SQLite — raiz, `server/`, `src/`), que
+> roda como **demonstração congelada**, e a base nova (Django 5 + PostgreSQL 16 +
+> React/Vite/TypeScript), em `backend/`, `frontend/`, `docker/` e `a11y/`.
+> **Nenhuma funcionalidade nova entra no legado** — nele, só correção de
+> segurança crítica. Próxima etapa: **2 — Capacitação**
+> (`docs/specs/plano-de-implementacao.md`) — **pré-condição dura: a chave do
+> YouTube precisa ter sido rotacionada** (ver Segredos, no fim).
 
 > **Pendência de segurança aberta (P1).** Há uma chave real do YouTube Data API
 > no histórico Git, herdada do repositório de origem. Rotacioná-la no Google
@@ -56,7 +57,7 @@ FORA do OneDrive** (ADR-002) — leia o rito e o estado direto na vault:
 
 | | Legado (demonstração) | Base nova |
 |---|---|---|
-| Onde | raiz: `server/`, `src/`, `public/` | `backend/`, `frontend/`, `docker/` |
+| Onde | raiz: `server/`, `src/`, `public/` | `backend/`, `frontend/`, `docker/`, `a11y/` |
 | Stack | Express 5 + SQLite + React 19 sobre CRA | Django 5 + PostgreSQL 16 + React 19 sobre Vite/TS |
 | Porta | web **8003** (compose `lilp-recpsp`) | app **8004** · Postgres **5434** · Vite **5173** (compose `lilp-recpsp-nova`) |
 | Comandos | `make demo-*` | `make up`, `make test`, `make lint`… |
@@ -77,9 +78,11 @@ Pré-requisito único: Docker. **Toda ferramenta roda dentro do contêiner**
   ESLint, guardião de tokens. `make format` — ruff.
 - `make saude` — confere API, CSP da página raiz e o repasse `/api` do Vite.
 - `make migrate` / `makemigrations` / `superusuario`.
-- `make build-app` (build do front + `check --deploy`) · `make auditoria` ·
-  `make imagem` · `make ci` (o mesmo laço da esteira) · `make a11y-check`
-  (vazio até a etapa 1).
+- `make build-app` (build do front + `check --deploy`) · `make auditoria` (três
+  cadeias) · `make imagem` · `make ci` (o mesmo laço da esteira).
+- `make a11y-check` — piso do ADR-007 sobre as páginas **no ar**: axe-core (zero
+  violação de qualquer gravidade) + HTML_CodeSniffer (zero erro WCAG2AA) +
+  suíte de teclado. Resultado datado em `docs/specs/validacao_a11y.md`.
 - `make clean` — **apaga os volumes**, inclusive o banco de desenvolvimento.
 
 ### Armadilhas da base nova (aprendidas na etapa 0)
@@ -101,8 +104,17 @@ Pré-requisito único: Docker. **Toda ferramenta roda dentro do contêiner**
 - **`from .base import *` traz a referência dos dicionários.** Alterar
   `DATABASES` ou `STORAGES` no lugar, em `prod.py`, contamina quem mais os
   segura. Monte um dicionário novo.
+- **O Vite recusa `Host` que não conheça** (proteção contra rebind de DNS). De
+  dentro da rede do Compose o navegador do `make a11y-check` chega por
+  `http://frontend:5173`, e a proteção barra. A lista `server.allowedHosts` vem
+  do ambiente e nasce **vazia**; o compose acrescenta só `frontend`. Nunca
+  `true` — isso desligaria a proteção inteira.
+- **`make a11y-check` mede as páginas NO AR**, então o stack precisa estar de pé
+  (o alvo já chama `make up`). O serviço `a11y` fica sob o perfil `ferramentas`
+  e não sobe com `make up`: a imagem do Playwright passa de um giga.
 - O lock do front é gerado **em contêiner**:
-  `docker run --rm -v "$PWD/frontend":/work -w /work node:22-bookworm-slim npm install --package-lock-only`.
+  `docker run --rm -v "$PWD/frontend":/work -w /work node:22-bookworm-slim npm install --package-lock-only`
+  (o mesmo vale para `a11y/`).
 
 ## Comandos da demonstração herdada (congelada)
 

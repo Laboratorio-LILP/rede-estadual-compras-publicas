@@ -1,150 +1,103 @@
 /*
- * Estilo minimo da pagina raiz do front (etapa 0).
+ * Camada base: como os elementos nativos se comportam antes de qualquer
+ * componente. Entra no `layer(base)` do Tailwind (ver `index.css`), abaixo das
+ * classes de utilidade — assim um `mt-4` numa pagina sempre vence.
  *
- * So `var(--sp-*)` de `tokens.css` — nenhum valor de cor mora aqui. O layout
- * raiz de verdade (landmarks, skip link, navegacao) e os componentes de base
- * entram na etapa 1.
+ * Nenhum valor de cor mora aqui: so `var(--sp-*)`.
  */
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+html {
+  /* O usuario que pede menos movimento nao ganha rolagem suave (WCAG 2.3.3);
+     o token de transicao ja' zera no mesmo `media`. */
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
   font-family: var(--sp-fonte-corpo);
   font-size: var(--sp-texto-md);
   line-height: var(--sp-altura-linha);
   color: var(--sp-text);
   background-color: var(--sp-fundo);
+  -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Foco visivel GLOBAL. Era o unico mecanismo central que funcionava no legado,
+ * e continua sendo a rede de seguranca: mesmo um controle escrito sem cuidado
+ * herda um anel visivel. `:focus-visible`, e nao `:focus`, para o anel nao
+ * aparecer em clique de ponteiro.
+ */
 :focus-visible {
-  outline: 3px solid var(--sp-foco);
-  outline-offset: 2px;
-}
-
-.pular-para-conteudo {
-  position: absolute;
-  left: -9999px;
-  top: var(--sp-espaco-2);
-  padding: var(--sp-espaco-2) var(--sp-espaco-4);
-  background-color: var(--sp-fundo);
+  outline: var(--sp-foco-largura) solid var(--sp-foco);
+  outline-offset: var(--sp-foco-deslocamento);
   border-radius: var(--sp-raio-sm);
 }
 
-.pular-para-conteudo:focus {
-  left: var(--sp-espaco-2);
-  z-index: 1;
-}
-
-.cabecalho {
-  background-color: var(--sp-petrol);
-  color: var(--sp-white);
-  padding: var(--sp-espaco-4);
-}
-
-.cabecalho__marca {
-  max-width: var(--sp-largura-pagina);
-  margin: 0 auto;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--sp-fonte-titulo);
-  font-size: var(--sp-texto-sm);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.pagina {
-  max-width: var(--sp-largura-pagina);
-  margin: 0 auto;
-  padding: var(--sp-espaco-12) var(--sp-espaco-4);
-}
-
-.pagina h1 {
-  font-family: var(--sp-fonte-titulo);
-  font-size: var(--sp-texto-3xl);
-  margin: 0 0 var(--sp-espaco-4);
-}
-
-.pagina h2 {
-  font-family: var(--sp-fonte-titulo);
-  font-size: var(--sp-texto-xl);
-  margin: var(--sp-espaco-8) 0 var(--sp-espaco-4);
-}
-
-.introducao {
-  font-size: var(--sp-texto-lg);
-  max-width: 60ch;
-}
-
-.amostra-de-cores {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-espaco-4);
-  list-style: none;
+  line-height: var(--sp-altura-linha-titulo);
+  font-weight: var(--sp-peso-semi);
   margin: 0;
-  padding: 0;
+  text-wrap: balance;
 }
 
-.amostra-de-cores li {
-  border: 1px solid var(--sp-borda);
-  border-radius: var(--sp-raio-md);
-  box-shadow: var(--sp-sombra-cartao);
-  overflow: hidden;
-  width: 12rem;
+h1 {
+  font-size: var(--sp-texto-3xl);
+}
+h2 {
+  font-size: var(--sp-texto-2xl);
+}
+h3 {
+  font-size: var(--sp-texto-xl);
+}
+h4 {
+  font-size: var(--sp-texto-lg);
 }
 
-.amostra-de-cores__cor {
-  height: 3rem;
+p,
+ul,
+ol,
+dl {
+  margin: 0;
 }
 
-.amostra-de-cores__nome {
-  display: block;
-  padding: var(--sp-espaco-2) var(--sp-espaco-3);
-  font-size: var(--sp-texto-xs);
+a {
+  color: var(--sp-link);
+  text-decoration: underline;
+  /* O sublinhado nao encosta na letra: legibilidade em fonte de tela. */
+  text-underline-offset: 0.15em;
 }
 
-.amostra-de-cores__uso {
-  display: block;
-  padding: 0 var(--sp-espaco-3) var(--sp-espaco-3);
-  font-size: var(--sp-texto-xs);
-  color: var(--sp-text-secondary);
+a:hover {
+  text-decoration-thickness: 2px;
 }
 
-.marca {
-  background-color: var(--sp-red);
-}
-.acao {
-  background-color: var(--sp-red-dark);
-}
-.link {
-  background-color: var(--sp-blue);
-}
-.sucesso {
-  background-color: var(--sp-green);
-}
-.destaque {
-  background-color: var(--sp-yellow);
-}
-.escuro {
-  background-color: var(--sp-petrol);
+/* Imagem nunca estoura o container (RNF-ACE-01: nada de rolagem horizontal). */
+img,
+svg,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
-.nota {
-  color: var(--sp-text-secondary);
-  font-size: var(--sp-texto-sm);
-  max-width: 60ch;
-}
-
-.rodape {
-  border-top: 1px solid var(--sp-borda);
-  padding: var(--sp-espaco-6) var(--sp-espaco-4);
-  color: var(--sp-text-secondary);
-  font-size: var(--sp-texto-sm);
-}
-
-.rodape p {
-  max-width: var(--sp-largura-pagina);
-  margin: 0 auto;
+/* O controle herda a fonte da pagina; o padrao do navegador nao herda. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }

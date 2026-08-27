@@ -142,13 +142,17 @@ lint-tokens: ## Proibe hexadecimal de cor fora do arquivo de tokens
 	$(FRONT) npm run lint:tokens
 
 format: ## Formata o back (ruff)
-	$(BACK_SEM_BANCO) sh -c "ruff check --fix . && ruff format ."
+	@# Formata ANTES de corrigir regras. Na ordem inversa, um erro que o ruff
+	@# nao sabe consertar sozinho (E501, por exemplo) derruba o `check --fix` e
+	@# o `format` nunca roda — justo no caso em que formatar resolveria.
+	$(BACK_SEM_BANCO) sh -c "ruff format . && ruff check --fix ."
 
-a11y-check: ## Piso de acessibilidade do ADR-007 (Playwright + axe)
-	@echo "make a11y-check: sem pagina a medir na etapa 0."
-	@echo "Entra na etapa 1, com o design system: Playwright + axe-core sobre as"
-	@echo "paginas construidas, nos quatro criterios do ADR-007 transversal"
-	@echo "(Lighthouse >= 95, axe 0 serios, pa11y 0 erros WCAG2AA, teclado)."
+a11y-check: ## Piso de acessibilidade do ADR-007 (axe-core + HTML_CodeSniffer + teclado)
+	@# Mede as PAGINAS NO AR, entao o stack precisa estar de pe. O `up` aqui e'
+	@# idempotente e barato; sem ele, a esteira mediria uma porta fechada e
+	@# passaria por engano.
+	$(MAKE) up
+	$(COMPOSE_NOVA) run --rm --build a11y
 
 build-app: ## Constroi o front e confere o back para implantacao
 	$(FRONT) npm run build
@@ -161,14 +165,21 @@ build-app: ## Constroi o front e confere o back para implantacao
 	  RECPSP_DB_PASSWORD=$$(python -c "import secrets; print(secrets.token_urlsafe(32))") \
 	  && python manage.py check --deploy --fail-level WARNING'
 
-auditoria: ## Auditoria de dependencias (back e front)
+auditoria: ## Auditoria de dependencias (back, front e acessibilidade)
 	$(BACK_SEM_BANCO) pip-audit --requirement requirements.txt --requirement requirements-dev.txt
 	$(FRONT) npm audit --audit-level=high
+	@# A cadeia do laco de acessibilidade tambem e' cadeia. Roda no conteiner do
+	@# front, contra o lock de `a11y/`, para nao ter que construir a imagem do
+	@# Playwright (mais de um giga) so para auditar.
+	$(FRONT) npm audit --audit-level=high --prefix ../a11y
 
 imagem: ## Constroi a imagem de producao do back
 	docker build --file docker/backend/Dockerfile --target prod --tag lilp-recpsp-nova:prod .
 
-ci: lint test build-app ## O mesmo laco que a esteira roda
+ci: lint test build-app a11y-check ## O mesmo laco que a esteira roda
+	@# O `a11y-check` entra aqui de propria: se `make ci` nao rodar o que a
+	@# esteira roda, o alvo mente. O custo e' a imagem do Playwright na
+	@# primeira execucao — depois fica em cache.
 
 clean: ## Derruba os servicos e APAGA os volumes (banco e node_modules)
 	$(COMPOSE_NOVA) down -v

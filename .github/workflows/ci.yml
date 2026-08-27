@@ -13,6 +13,7 @@ on:
       - "backend/**"
       - "frontend/**"
       - "docker/**"
+      - "a11y/**"
       - ".devcontainer/**"
       - "Makefile"
       - ".env.example"
@@ -22,6 +23,7 @@ on:
       - "backend/**"
       - "frontend/**"
       - "docker/**"
+      - "a11y/**"
       - ".devcontainer/**"
       - "Makefile"
       - ".env.example"
@@ -64,7 +66,18 @@ jobs:
         run: make build-app
 
       - name: Acessibilidade (piso do ADR-007)
+        # axe-core e HTML_CodeSniffer sobre as duas paginas no ar, mais a
+        # suite de teclado. Roda na imagem oficial do Playwright.
         run: make a11y-check
+
+      - name: Guardar o rastro quando a acessibilidade reprovar
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rastro-a11y
+          path: a11y/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Derrubar o stack
         if: always()

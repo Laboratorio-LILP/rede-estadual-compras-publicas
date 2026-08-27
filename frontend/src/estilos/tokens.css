@@ -6,56 +6,200 @@
  *
  * REGRA DE LINT: nenhum valor hexadecimal existe fora deste arquivo. Quem
  * precisa de cor usa `var(--sp-*)`. Vale para o front e para as paginas
- * servidas pelo Django, que leem este mesmo arquivo.
+ * servidas pelo Django, que leem este mesmo arquivo. Guardiao:
+ * `frontend/scripts/verificar-tokens.mjs`, por `make lint`.
  *
- * Etapa 0 (fundacao) semeia os tokens. A etapa 1 completa o design system —
- * as fontes hospedadas localmente e os componentes de base.
+ * SEGUNDA REGRA, desde a etapa 1: toda combinacao de frente sobre fundo que o
+ * produto desenha esta MEDIDA em `tokens.test.ts`, contra a formula da WCAG.
+ * Token novo que va' por cima de outro entra na tabela de la' — senao ninguem
+ * mediu, e "acessivel" volta a ser adjetivo. Os numeros nos comentarios abaixo
+ * sao a razao de contraste, e sao o que o teste confere.
+ *
+ * A organizacao tem duas camadas, e a distincao importa:
+ *   1. PALETA — os valores crus. Contrato do ADR-007; nao se inventa aqui.
+ *   2. PAPEL  — o que a interface usa. Sempre `var()` de um token de paleta.
+ * Nenhum componente le' a paleta direto: le' o papel. Trocar a cor de um botao
+ * vira uma linha aqui, e nao uma varredura pelo codigo.
  */
 
 :root {
-  /* --- Cor: contrato do ADR-007 ------------------------------------------ */
+  /* =======================================================================
+   * 1. PALETA — contrato do ADR-007 transversal
+   * ===================================================================== */
 
   /* Marca. So em nao-texto: preenchimento, icone, borda, faixa.
      Com texto branco da 4,38:1 e reprova AA — por isso existe o token de acao. */
   --sp-red: #ed1c24;
   /* Acao: texto vermelho e fundo de botao primario (6,49:1). */
   --sp-red-dark: #bd0e15;
-  /* Botao primario sob o ponteiro. */
+  /* Botao primario sob o ponteiro (7,86:1). */
   --sp-red-darker: #9b0b11;
 
   /* Link, foco e botao secundario (8,03:1). */
   --sp-blue: #034ea2;
-  /* Sucesso: so nao-texto ou texto grande. */
+  /* Botao secundario sob o ponteiro (11,00:1). */
+  --sp-blue-dark: #023b7a;
+  /* Sucesso: so nao-texto ou texto grande — com branco da 4,03:1. */
   --sp-green: #0b9247;
-  /* Secundaria GESP. Nunca com texto branco. */
+  /* Verde escurecido, para quando precisa carregar texto branco (6,65:1). */
+  --sp-green-dark: #076b33;
+  /* Secundaria GESP. Nunca com texto branco — sempre com `--sp-text`. */
   --sp-yellow: #fbb900;
-  /* Faixas escuras e rodape. */
+  /* Ambar escurecido, para texto sobre fundo amarelo palido. */
+  --sp-amber-dark: #7a5300;
+  /* Faixas escuras e rodape (12,68:1 com branco). */
   --sp-petrol: #233254;
 
   --sp-gray-light: #f5f5f5;
   --sp-gray-medium: #bfbfbf;
-  /* Texto auxiliar GRANDE apenas. */
+  /* Texto auxiliar GRANDE apenas (3,95:1). Serve de borda de controle, onde o
+     piso e' 3:1 (WCAG 1.4.11) e nao 4,5:1. */
   --sp-gray-dark: #808080;
+  --sp-gray-darker: #4b5563;
+  --sp-gray-surface: #e5e7eb;
 
   --sp-white: #ffffff;
 
-  /* Neutros de texto da RECPSP, todos >= 4,5:1 sobre branco. */
-  --sp-text: #1d1d1b; /* corpo — 16,0:1 */
-  --sp-text-secondary: #6b7280; /* metadados e legendas — 4,83:1 */
+  /* Neutros de texto da RECPSP. */
+  --sp-text: #1d1d1b; /* corpo — 16,0:1 sobre branco */
+  /* Metadados e legendas. CORRIGIDO na etapa 1: o valor da especificacao
+     (#6B7280) da 4,83:1 sobre branco mas so 4,43:1 sobre o fundo de secao
+     alternada, onde tambem e' usado — reprova AA. Este da 5,88:1 e 5,40:1.
+     Foi o teste de contraste que achou; a especificacao foi corrigida. */
+  --sp-text-secondary: #5d6572;
 
-  /* --- Papeis semanticos -------------------------------------------------- */
+  /* Tintas palidas dos alertas. Existem so como fundo. */
+  --sp-blue-pale: #eaf1f9;
+  --sp-blue-pale-border: #b6cee7;
+  --sp-green-pale: #e7f4ec;
+  --sp-green-pale-border: #a9d9be;
+  --sp-yellow-pale: #fdf3da;
+  --sp-yellow-pale-border: #f3d67a;
+  --sp-red-pale: #fbeaeb;
+  --sp-red-pale-border: #efb8bb;
+
+  /* =======================================================================
+   * 2. PAPEIS — o que a interface usa
+   * ===================================================================== */
+
+  /* --- Superficies e texto ------------------------------------------------ */
 
   --sp-fundo: var(--sp-white);
   --sp-fundo-alternado: var(--sp-gray-light);
-  --sp-borda: var(--sp-gray-medium);
+  --sp-borda: var(--sp-gray-medium); /* separador decorativo, nao controle */
   --sp-link: var(--sp-blue);
+
+  /* --- Foco: o unico mecanismo central que funcionava no legado ----------- */
+
   --sp-foco: var(--sp-blue);
+  --sp-foco-largura: 3px;
+  --sp-foco-deslocamento: 2px;
 
-  /* --- Tipografia --------------------------------------------------------- */
+  /* --- Faixas institucionais (cabecalho e rodape) ------------------------- */
 
-  /* Fontes hospedadas no proprio servidor (ADR-007: sem requisicao ao Google
-     por visitante). Os arquivos `@font-face` entram na etapa 1; ate la valem as
-     reservas do sistema. */
+  --sp-faixa-fundo: var(--sp-petrol);
+  --sp-faixa-texto: var(--sp-white);
+
+  /* --- Botoes: quatro variantes do inventario ---------------------------- */
+
+  --sp-botao-primario-fundo: var(--sp-red-dark);
+  --sp-botao-primario-fundo-hover: var(--sp-red-darker);
+  --sp-botao-primario-texto: var(--sp-white);
+
+  --sp-botao-secundario-fundo: var(--sp-blue);
+  --sp-botao-secundario-fundo-hover: var(--sp-blue-dark);
+  --sp-botao-secundario-texto: var(--sp-white);
+
+  --sp-botao-fantasma-texto: var(--sp-blue);
+  --sp-botao-fantasma-fundo-hover: var(--sp-blue-pale);
+
+  /* Contornado em repouso, preenchido sob o ponteiro. A distincao em relacao
+     ao primario e' de PREENCHIMENTO, e nao de matiz: o vermelho continua sendo
+     a marca. Sao os dois botoes vermelhos do produto — desenhados iguais,
+     "Salvar" e "Excluir" viram o mesmo alvo, que e' o que o legado fazia. */
+  --sp-botao-perigo-fundo: var(--sp-white);
+  --sp-botao-perigo-borda: var(--sp-red-dark); /* 6,49:1, acima do piso de 3:1 */
+  --sp-botao-perigo-texto: var(--sp-red-dark); /* 6,49:1 */
+  --sp-botao-perigo-fundo-hover: var(--sp-red-dark);
+  --sp-botao-perigo-texto-hover: var(--sp-white); /* 6,49:1 */
+
+  /* Desabilitado e' isento da 1.4.3, mas ilegivel e' defeito de qualquer
+     forma — este par da 6,10:1. */
+  --sp-desabilitado-fundo: var(--sp-gray-surface);
+  --sp-desabilitado-texto: var(--sp-gray-darker);
+
+  /* --- Campos ------------------------------------------------------------ */
+
+  --sp-campo-fundo: var(--sp-white);
+  --sp-campo-texto: var(--sp-text);
+  /* Borda de CONTROLE: piso de 3:1 pela WCAG 1.4.11, porque e' o que permite
+     ver onde o campo comeca. O `--sp-borda` decorativo (1,84:1) nao serve. */
+  --sp-campo-borda: var(--sp-gray-dark);
+  --sp-campo-borda-erro: var(--sp-red-dark);
+  --sp-campo-marcador: var(--sp-text-secondary);
+  --sp-campo-erro-texto: var(--sp-red-dark);
+
+  /* --- Cartoes ----------------------------------------------------------- */
+
+  --sp-cartao-fundo: var(--sp-white);
+  --sp-cartao-borda: var(--sp-gray-medium);
+
+  /* --- Alertas: quatro variantes, todas com texto sobre tinta palida ------ */
+
+  --sp-alerta-info-fundo: var(--sp-blue-pale);
+  --sp-alerta-info-borda: var(--sp-blue-pale-border);
+  --sp-alerta-info-texto: var(--sp-blue); /* 7,05:1 */
+
+  --sp-alerta-sucesso-fundo: var(--sp-green-pale);
+  --sp-alerta-sucesso-borda: var(--sp-green-pale-border);
+  --sp-alerta-sucesso-texto: var(--sp-green-dark); /* 5,87:1 */
+
+  --sp-alerta-aviso-fundo: var(--sp-yellow-pale);
+  --sp-alerta-aviso-borda: var(--sp-yellow-pale-border);
+  --sp-alerta-aviso-texto: var(--sp-amber-dark); /* 6,20:1 */
+
+  --sp-alerta-erro-fundo: var(--sp-red-pale);
+  --sp-alerta-erro-borda: var(--sp-red-pale-border);
+  --sp-alerta-erro-texto: var(--sp-red-dark); /* 5,58:1 */
+
+  /* --- Selos: cinco variantes -------------------------------------------- */
+  /*
+   * O legado tinha 37 pilulas em 24 formas e 5 das 8 cores reprovando AA com
+   * texto branco. Aqui sao cinco categorias semanticas, cada uma com um par
+   * medido. A forma (preenchimento solido com texto claro) e' a do mockup; o
+   * que mudou foram os valores.
+   */
+
+  --sp-selo-papel-fundo: var(--sp-petrol); /* 12,68:1 */
+  --sp-selo-papel-texto: var(--sp-white);
+
+  --sp-selo-especialidade-fundo: var(--sp-red-dark); /* 6,49:1 */
+  --sp-selo-especialidade-texto: var(--sp-white);
+
+  --sp-selo-formato-fundo: var(--sp-gray-darker); /* 7,56:1 */
+  --sp-selo-formato-texto: var(--sp-white);
+
+  --sp-selo-nivel-fundo: var(--sp-green-dark); /* 6,65:1 */
+  --sp-selo-nivel-texto: var(--sp-white);
+
+  /* Amarelo NUNCA com texto branco (2,03:1). Com o texto de corpo: 9,68:1. */
+  --sp-selo-situacao-fundo: var(--sp-yellow);
+  --sp-selo-situacao-texto: var(--sp-text);
+
+  /* --- Sobreposicao e carregamento --------------------------------------- */
+
+  /* `rgb()` com alfa, e nao hexadecimal: precisa deixar a pagina passar. */
+  --sp-sobreposicao: rgb(29 29 27 / 0.6);
+  --sp-esqueleto: var(--sp-gray-surface);
+  --sp-esqueleto-brilho: var(--sp-gray-light);
+
+  /* =======================================================================
+   * 3. TIPOGRAFIA
+   * ===================================================================== */
+
+  /* Fontes do proprio servidor (ADR-007: sem requisicao ao Google por
+     visitante). O `@font-face` da Montserrat esta em `fontes.css`; a Verdana
+     e' fonte de sistema e por isso nao tem arquivo — ver o cabecalho de la'. */
   --sp-fonte-corpo: Verdana, Geneva, sans-serif;
   --sp-fonte-titulo: Montserrat, Verdana, Geneva, sans-serif;
 
@@ -69,8 +213,15 @@
   --sp-texto-3xl: 1.875rem; /* 30px */
 
   --sp-altura-linha: 1.5;
+  --sp-altura-linha-titulo: 1.25;
 
-  /* --- Forma: tres raios, duas sombras ------------------------------------ */
+  --sp-peso-normal: 400;
+  --sp-peso-semi: 600;
+  --sp-peso-negrito: 700;
+
+  /* =======================================================================
+   * 4. FORMA — tres raios, duas sombras
+   * ===================================================================== */
 
   --sp-raio-sm: 4px; /* campos, selos */
   --sp-raio-md: 8px; /* cartoes, botoes */
@@ -79,7 +230,9 @@
   --sp-sombra-cartao: 0 1px 3px rgb(0 0 0 / 0.1), 0 1px 2px rgb(0 0 0 / 0.06);
   --sp-sombra-cartao-hover: 0 4px 6px rgb(0 0 0 / 0.1), 0 2px 4px rgb(0 0 0 / 0.06);
 
-  /* --- Espaco: escala de 4px; um container de pagina ---------------------- */
+  /* =======================================================================
+   * 5. ESPACO E MOVIMENTO
+   * ===================================================================== */
 
   --sp-espaco-1: 0.25rem;
   --sp-espaco-2: 0.5rem;
@@ -90,4 +243,16 @@
   --sp-espaco-12: 3rem;
 
   --sp-largura-pagina: 72rem; /* equivalente ao `max-w-6xl` */
+
+  --sp-transicao: 150ms ease-in-out;
+}
+
+/*
+ * Quem pediu menos movimento ao sistema recebe menos movimento (WCAG 2.3.3).
+ * Fica aqui, e nao em `base.css`, porque o valor da transicao e' token.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sp-transicao: 0ms;
+  }
 }

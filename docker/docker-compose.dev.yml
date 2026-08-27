@@ -92,6 +92,10 @@ services:
       # Ver `docs/adr/0004-loopback-em-conteiner.md`.
       RECPSP_WEB_HOST: 0.0.0.0
       RECPSP_WEB_PORT: "5173"
+      # O laco de acessibilidade alcanca o front pelo NOME DE SERVICO, e o Vite
+      # barra cabecalho `Host` desconhecido (protecao contra rebind de DNS).
+      # So este nome entra, e ele so resolve dentro da rede privada do projeto.
+      RECPSP_WEB_ALLOWED_HOSTS: frontend
       RECPSP_API_PROXY: http://backend:8004
       RECPSP_BASE_PATH: ${RECPSP_BASE_PATH:-/}
       RECPSP_API_URL: ${RECPSP_API_URL:-}
@@ -112,8 +116,37 @@ services:
       - backend
     restart: unless-stopped
 
+  # Laco de acessibilidade (ADR-007). Nao sobe com `make up`: e' verificacao
+  # sob demanda, e a imagem do Playwright pesa mais de um giga. O perfil
+  # `ferramentas` o mantem fora do ciclo de vida normal — `docker compose run`
+  # o alcanca mesmo assim, que e' como `make a11y-check` o chama.
+  a11y:
+    profiles: ["ferramentas"]
+    build:
+      context: ..
+      dockerfile: docker/a11y/Dockerfile
+    working_dir: /trabalho
+    environment:
+      # NOMES DE SERVICO, e nao `127.0.0.1`: de dentro de um conteiner o
+      # loopback e' o dele proprio. A publicacao em loopback no host, que
+      # garante o ADR-004, e' outro caminho e nao interfere aqui.
+      RECPSP_URL_FRONT: http://frontend:5173
+      RECPSP_URL_APP: http://backend:8004
+    # O Chromium em conteiner morre com o `/dev/shm` de 64 MB que o Docker da'
+    # por padrao. E' a recomendacao da propria imagem do Playwright.
+    ipc: host
+    volumes:
+      - ../a11y:/trabalho
+      # Preserva o `node_modules` da imagem: sem isto o monte do host o encobre
+      # e nao ha' Playwright para rodar. Mesma armadilha do servico do front.
+      - a11y_node_modules:/trabalho/node_modules
+    depends_on:
+      - backend
+      - frontend
+
 volumes:
   dbdata:
   node_modules:
+  a11y_node_modules:
   legado_node_modules:
   legado_build:

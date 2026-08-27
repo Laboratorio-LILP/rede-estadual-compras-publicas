@@ -7,7 +7,7 @@ lê nesta ordem:
 |---|---|---|
 | 1 | [`../CLAUDE.md`](../CLAUDE.md) | limites de segurança, o estado da transição, as duas gerações |
 | 2 | [`adr/`](adr/) | as decisões da reescrita — ler o [0002](adr/0002-reescrita-stack-e-estrangulamento.md) primeiro |
-| 3 | [`specs/`](specs/) | o que construir: [arquitetura-alvo](specs/arquitetura-alvo.md), [modelo de dados](specs/modelo-de-dados.md), [design system](specs/design-system.md), [plano](specs/plano-de-implementacao.md) |
+| 3 | [`specs/`](specs/) | o que construir: [arquitetura-alvo](specs/arquitetura-alvo.md), [modelo de dados](specs/modelo-de-dados.md), [design system](specs/design-system.md), [plano](specs/plano-de-implementacao.md); e o que já foi medido: [validação de acessibilidade](specs/validacao_a11y.md) |
 | 4 | [`QUESTIONS.md`](QUESTIONS.md) | o que ainda **não** foi decidido — não invente resposta |
 | 5 | [`requisitos/`](requisitos/) | o que a plataforma deve fazer (46 RF + 19 RNF) |
 | 6 | [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`MODELO_DE_DADOS.md`](MODELO_DE_DADOS.md) | **a base legada** (demonstração congelada), até o corte |
