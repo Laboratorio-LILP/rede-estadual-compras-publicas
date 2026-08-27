@@ -37,6 +37,7 @@ a reescrita torna propriedade da base nova.
   - `make lint` verde: ruff, **mypy estrito**, tsc, ESLint (jsx-a11y estrito) e o guardião que proíbe hexadecimal fora de `tokens.css`.
   - `make auditoria`: **zero** vulnerabilidades nas duas cadeias (a do legado tem 54). A auditoria já pagou por si — apontou PYSEC-2026-1845 no pytest, corrigida na mesma sessão.
   - Imagem de produção construída e conferida: roda sem privilégio (`recpsp`, uid 10001).
+  - CI verde no GitHub após o push de `143b8ca`: os três trabalhos da esteira nova e o do legado.
   - **Divergência consciente registrada:** [ADR 0004](adr/0004-loopback-em-conteiner.md) — em contêiner o loopback é garantido pela publicação no host; a letra do ADR-004 transversal precisa de nota (proposta na vault).
 - [ ] Etapa 1 — design system (tokens ADR-007, componentes com teclado e rótulo) + taxonomia BDLP semeada.
 - [ ] Etapa 2 — Capacitação completa, gerida pelo admin. **Pré-condição: chave do YouTube rotacionada.**
@@ -53,8 +54,10 @@ a reescrita torna propriedade da base nova.
 - [ ] **Nome do projeto Compose no corte:** a base nova roda como
   `lilp-recpsp-nova` enquanto as duas gerações convivem. Na etapa 6 ela assume
   `lilp-recpsp` e a porta 8003.
-- [ ] **CI verde no GitHub:** o laço foi provado na máquina, comando a comando.
-  A esteira só se confirma no primeiro push.
+- [x] **CI verde no GitHub** *(27/08)* — `main` empurrada (`143b8ca`); a esteira
+  nova passou nos três trabalhos (lint/testes/build, auditoria de dependências,
+  imagem de produção) e a do legado também. Último item do critério de pronto
+  da etapa 0, fechado.
 
 ## Pendências que a reescrita NÃO resolve
 
