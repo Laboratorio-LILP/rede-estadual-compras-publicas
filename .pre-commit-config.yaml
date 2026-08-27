@@ -1,0 +1,57 @@
+# Laco curto de verificacao antes do commit.
+#
+# Divisao deliberada (ADR-008): o que e barato e isolado roda no gancho de
+# commit; o que precisa das dependencias do projeto roda no gancho de push,
+# DENTRO do conteiner, pelos mesmos alvos do Makefile que a esteira usa.
+# Nenhuma verificacao depende de Python, Node ou banco instalados na maquina.
+#
+# Instalacao:  pre-commit install --install-hooks
+
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: tokens
+        name: cor so em tokens.css
+        entry: make lint-tokens
+        language: system
+        pass_filenames: false
+        files: \.(css|ts|tsx|html|svg)$
+
+      - id: tipos
+        name: mypy (back) e tsc (front), no conteiner
+        entry: make lint-tipos
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: eslint
+        name: ESLint, no conteiner
+        entry: make lint-front
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

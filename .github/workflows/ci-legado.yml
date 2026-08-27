@@ -1,0 +1,71 @@
+# Esteira da DEMONSTRACAO HERDADA (Express + SQLite + CRA).
+#
+# A base esta congelada (ADR 0002): nenhuma funcionalidade nova entra nela, so
+# correcao de seguranca critica. Esta esteira existe para que uma correcao
+# dessas siga sendo verificavel, e roda SO quando o codigo herdado muda — o
+# trabalho novo e verificado por `ci.yml`.
+#
+# Some junto com o legado no corte unico (etapa 6 do plano).
+
+name: CI — demonstracao herdada
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "craco.config.js"
+      - "tailwind.config.js"
+      - "postcss.config.js"
+      - ".github/workflows/ci-legado.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "src/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "craco.config.js"
+      - "tailwind.config.js"
+      - "postcss.config.js"
+      - ".github/workflows/ci-legado.yml"
+
+concurrency:
+  group: legado-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Mesma major do runtime da imagem Docker (node:22-bookworm-slim).
+          node-version: "22"
+          cache: npm
+
+      - name: Instalar dependências (npm ci, mesmo lock do build Docker)
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Testes do front (react-scripts)
+        run: npm test
+        env:
+          CI: "true"
+
+      - name: Testes de API (node:test, banco temporário por execução)
+        run: npm run test:api
+
+      - name: Build de produção
+        run: npm run build

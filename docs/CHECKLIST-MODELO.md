@@ -29,13 +29,32 @@ a reescrita torna propriedade da base nova.
 
 ## Base nova — placar por etapa do plano (`docs/specs/plano-de-implementacao.md`)
 
-- [ ] Etapa 0 — fundação: esqueleto, contêineres (ADR-008), Makefile novo, CI nova, CSP estrita.
+- [x] Etapa 0 — fundação: esqueleto, contêineres (ADR-008), Makefile novo, CI nova, CSP estrita. *(27/08)*
+  - `make up` sobe os três serviços — app **8004**, Postgres **5434**, Vite **5173**, todos publicados em `127.0.0.1` (conferido com `docker ps` e `netstat`).
+  - `make test` roda pytest (20) e Vitest (7) **de dentro do contêiner** — o que a sessão de 26/08 provou ser impossível no legado.
+  - Página raiz com **CSP estrita** verificada por teste: `default-src 'none'`, sem `unsafe-inline`, sem `unsafe-eval`.
+  - Segredo ausente **derruba o boot em produção**, com teste que exige a falha.
+  - `make lint` verde: ruff, **mypy estrito**, tsc, ESLint (jsx-a11y estrito) e o guardião que proíbe hexadecimal fora de `tokens.css`.
+  - `make auditoria`: **zero** vulnerabilidades nas duas cadeias (a do legado tem 54). A auditoria já pagou por si — apontou PYSEC-2026-1845 no pytest, corrigida na mesma sessão.
+  - Imagem de produção construída e conferida: roda sem privilégio (`recpsp`, uid 10001).
+  - **Divergência consciente registrada:** [ADR 0004](adr/0004-loopback-em-conteiner.md) — em contêiner o loopback é garantido pela publicação no host; a letra do ADR-004 transversal precisa de nota (proposta na vault).
 - [ ] Etapa 1 — design system (tokens ADR-007, componentes com teclado e rótulo) + taxonomia BDLP semeada.
 - [ ] Etapa 2 — Capacitação completa, gerida pelo admin. **Pré-condição: chave do YouTube rotacionada.**
 - [ ] Etapa 3 — contas, cadastro escalonado, sentinela; trilho Gov.br aberto com a TI.
 - [ ] Etapa 4 — fórum com moderação total e três eixos. **Pré-condição: dono da moderação nomeado (pergunta 17).**
 - [ ] Etapa 5 — mensagens, notificações, home gerida, busca transversal, indicadores mínimos.
 - [ ] Etapa 6 — corte: paridade validada, `DEPLOY.md`, legado fora da árvore, `recpsp.onrender.com` desativado.
+
+## Pendências abertas pela etapa 0
+
+- [ ] **Nota no ADR-004 transversal** (vault): a prescrição de ligar o Vite em
+  `127.0.0.1` dentro do contêiner não é realizável; o loopback é garantido pela
+  publicação no host. Texto proposto no [ADR 0004](adr/0004-loopback-em-conteiner.md).
+- [ ] **Nome do projeto Compose no corte:** a base nova roda como
+  `lilp-recpsp-nova` enquanto as duas gerações convivem. Na etapa 6 ela assume
+  `lilp-recpsp` e a porta 8003.
+- [ ] **CI verde no GitHub:** o laço foi provado na máquina, comando a comando.
+  A esteira só se confirma no primeiro push.
 
 ## Pendências que a reescrita NÃO resolve
 

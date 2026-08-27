@@ -11,6 +11,7 @@
 | Data | 27/08/2026 |
 | Base | ADRs 0001–0003 da frente · ADR-001/004/005/006/007/008 transversais · Documento de Requisitos v1.0 |
 | Regra de manutenção | Este documento é o **alvo**. Divergência consciente na implementação atualiza este arquivo na mesma sessão. |
+| Correções | 27/08/2026, etapa 0 — seção 9: a garantia de loopback do Vite é a publicação no host, não a ligação interna do processo ([ADR 0004](../adr/0004-loopback-em-conteiner.md)). |
 
 ---
 
@@ -163,7 +164,7 @@ ser construída no CI — lacuna apontada na auditoria do legado.
 | Demonstração (base herdada) | 8003 | **Congelada.** Nenhuma funcionalidade nova; só correção de segurança crítica. |
 | Aplicação nova (Django) | 8004 | Em construção. |
 | PostgreSQL | 5434 | Da base nova. |
-| Vite (só dev) | 5173 | Recarregamento automático; **loopback explícito** — o padrão de fábrica é `0.0.0.0` e precisa ser desligado. |
+| Vite (só dev) | 5173 | Recarregamento automático; **loopback pela publicação no host** — em contêiner a ligação interna é `0.0.0.0` por necessidade do encaminhamento de porta ([ADR 0004](../adr/0004-loopback-em-conteiner.md)). |
 
 Não há migração de dados (o banco herdado é descartável) nem roteador de
 transição. O corte é único, quando a equipe validar a paridade: a nova assume o

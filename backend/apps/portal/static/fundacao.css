@@ -1,0 +1,122 @@
+/*
+ * Estilo da pagina raiz servida pelo Django na etapa 0.
+ *
+ * Usa exclusivamente `var(--sp-*)` de `tokens.css` — nenhum valor de cor mora
+ * aqui. Some quando o front assumir a raiz (etapa 6).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sp-fonte-corpo);
+  font-size: var(--sp-texto-md);
+  line-height: var(--sp-altura-linha);
+  color: var(--sp-text);
+  background-color: var(--sp-fundo);
+}
+
+h1,
+h2 {
+  font-family: var(--sp-fonte-titulo);
+  margin: 0 0 var(--sp-espaco-4);
+}
+
+h1 {
+  font-size: var(--sp-texto-3xl);
+}
+
+h2 {
+  font-size: var(--sp-texto-xl);
+  margin-top: var(--sp-espaco-8);
+}
+
+a {
+  color: var(--sp-link);
+}
+
+:focus-visible {
+  outline: 3px solid var(--sp-foco);
+  outline-offset: 2px;
+}
+
+.pular-para-conteudo {
+  position: absolute;
+  left: -9999px;
+  top: var(--sp-espaco-2);
+  padding: var(--sp-espaco-2) var(--sp-espaco-4);
+  background-color: var(--sp-white);
+  border-radius: var(--sp-raio-sm);
+}
+
+.pular-para-conteudo:focus {
+  left: var(--sp-espaco-2);
+  z-index: 1;
+}
+
+.faixa {
+  background-color: var(--sp-petrol);
+  color: var(--sp-white);
+  padding: var(--sp-espaco-4);
+}
+
+.faixa__marca {
+  max-width: var(--sp-largura-pagina);
+  margin: 0 auto;
+  font-family: var(--sp-fonte-titulo);
+  font-size: var(--sp-texto-sm);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.pagina {
+  max-width: var(--sp-largura-pagina);
+  margin: 0 auto;
+  padding: var(--sp-espaco-12) var(--sp-espaco-4);
+}
+
+.destaque {
+  font-size: var(--sp-texto-lg);
+  max-width: 60ch;
+}
+
+.lista-de-dados {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-espaco-2) var(--sp-espaco-6);
+  margin: 0;
+  padding: var(--sp-espaco-4);
+  border: 1px solid var(--sp-borda);
+  border-radius: var(--sp-raio-md);
+  background-color: var(--sp-fundo-alternado);
+}
+
+.lista-de-dados dt {
+  font-weight: 700;
+}
+
+.lista-de-dados dd {
+  margin: 0;
+}
+
+.nota {
+  color: var(--sp-text-secondary);
+  font-size: var(--sp-texto-sm);
+  max-width: 60ch;
+}
+
+.rodape {
+  border-top: 1px solid var(--sp-borda);
+  padding: var(--sp-espaco-6) var(--sp-espaco-4);
+  color: var(--sp-text-secondary);
+  font-size: var(--sp-texto-sm);
+}
+
+.rodape p {
+  max-width: var(--sp-largura-pagina);
+  margin: 0 auto;
+}

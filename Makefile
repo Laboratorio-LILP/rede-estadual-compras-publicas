@@ -1,49 +1,215 @@
-# Makefile da RECPSP — comandos padronizados do LILP (compose `lilp-recpsp`).
-# Requisitos: Docker + Docker Compose v2. Para `make test`, Node 18+ no host.
+# Makefile da RECPSP — porta de entrada canonica das duas geracoes.
+#
+# BASE NOVA (Django + PostgreSQL + Vite): verbos sem prefixo — `make up`,
+# `make test`, `make lint`... Toda ferramenta roda DENTRO do conteiner
+# (ADR-008 transversal). Nada exige Python, Node ou banco na maquina.
+#
+# DEMONSTRACAO HERDADA (Express + SQLite + CRA): verbos sob o prefixo `demo-`.
+# Congelada (ADR 0002): nenhuma funcionalidade nova, so correcao de seguranca
+# critica. Some da arvore no corte unico (etapa 6 do plano).
+#
+# Regra do ADR-008: nenhum comando existe so no `.devcontainer/`. O que ele
+# faz, este arquivo faz.
 
-COMPOSE = docker compose
+PROJETO_NOVA = lilp-recpsp-nova
+COMPOSE_NOVA_ARQUIVO = docker/docker-compose.dev.yml
+ENV_ARG = $(shell test -f .env && echo --env-file .env)
+COMPOSE_NOVA = docker compose $(ENV_ARG) -f $(COMPOSE_NOVA_ARQUIVO)
+COMPOSE_DEMO = docker compose
 
-.PHONY: help setup check-env build up down restart logs ps shell test clean
+# `run --rm` sobe as dependencias declaradas; `--no-deps` evita subir o banco
+# quando ele nao e necessario.
+BACK = $(COMPOSE_NOVA) run --rm backend
+BACK_SEM_BANCO = $(COMPOSE_NOVA) run --rm --no-deps backend
+FRONT = $(COMPOSE_NOVA) run --rm --no-deps frontend
 
-help: ## Lista os comandos disponíveis
-	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
+PORTA_APP = $(shell grep -E '^RECPSP_APP_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+PORTA_APP := $(if $(PORTA_APP),$(PORTA_APP),8004)
+PORTA_WEB = $(shell grep -E '^RECPSP_WEB_PORT=' .env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+PORTA_WEB := $(if $(PORTA_WEB),$(PORTA_WEB),5173)
 
-setup: check-env build up ## 1ª vez: valida .env, constrói a imagem e sobe
+.PHONY: help setup check-env build up down restart ps logs shell shell-front \
+        migrate makemigrations superusuario test test-back test-front \
+        lint lint-back lint-front lint-tipos lint-tokens format \
+        a11y-check saude auditoria imagem build-app ci clean \
+        demo-setup demo-build demo-up demo-down demo-restart demo-logs \
+        demo-ps demo-shell demo-test demo-clean
+
+# --- Ajuda ------------------------------------------------------------------
+
+help: ## Lista os comandos disponiveis
+	@echo "Base nova (Django + PostgreSQL + Vite):"
+	@grep -E '^[a-z][a-z0-9-]*:.*##' $(MAKEFILE_LIST) | grep -v '^demo-' \
+	  | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
 	@echo ""
-	@echo "RECPSP no ar: http://localhost:$${RECPSP_PORT:-8003}"
-	@echo "O seed criou o admin inicial — troque a senha (ver README, 'Primeiro acesso')."
+	@echo "Demonstracao herdada (congelada — so correcao de seguranca critica):"
+	@grep -E '^demo-[a-z-]*:.*##' $(MAKEFILE_LIST) \
+	  | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
+
+# --- Ciclo de vida da base nova ---------------------------------------------
+
+setup: check-env build up ## 1a vez: valida o .env, constroi as imagens e sobe
+	@echo ""
+	@echo "Aplicacao Django:   http://127.0.0.1:$(PORTA_APP)"
+	@echo "Front (Vite):       http://127.0.0.1:$(PORTA_WEB)"
+	@echo "Saude da API:       http://127.0.0.1:$(PORTA_APP)/api/v1/saude"
+	@echo ""
+	@echo "Confira com: make saude"
 
 check-env:
 	@test -f .env || { \
-	  echo "ERRO: .env não existe. Copie o modelo e defina JWT_SECRET:"; \
+	  echo "ERRO: .env nao existe. Copie o modelo e defina o segredo do banco:"; \
+	  echo "  cp .env.example .env"; \
+	  echo "  openssl rand -hex 32   # use o resultado como RECPSP_DB_PASSWORD"; \
+	  exit 1; }
+	@grep -qE '^RECPSP_DB_PASSWORD=.+' .env || { \
+	  echo "ERRO: RECPSP_DB_PASSWORD esta vazia no .env (sem fallback, de proposito)."; \
+	  echo "  openssl rand -hex 32"; \
+	  exit 1; }
+
+build: ## Constroi as imagens e renova as dependencias do front
+	$(COMPOSE_NOVA) build
+	@# O `node_modules` vive num volume para nao ser encoberto pelo monte do
+	@# host. Sem renova-lo aqui, uma dependencia nova entra na imagem e o
+	@# conteiner segue rodando a instalacao antiga — falha silenciosa e cara.
+	@$(COMPOSE_NOVA) rm --stop --force frontend >/dev/null 2>&1 || true
+	@docker volume rm $(PROJETO_NOVA)_node_modules >/dev/null 2>&1 || true
+	@echo "Imagens construidas; dependencias do front renovadas."
+
+up: check-env ## Sobe os tres servicos (app 8004, Postgres 5434, Vite 5173 — loopback)
+	$(COMPOSE_NOVA) up -d
+
+down: ## Derruba os servicos (o banco fica no volume)
+	$(COMPOSE_NOVA) down
+
+restart: ## Reinicia os servicos
+	$(COMPOSE_NOVA) restart
+
+ps: ## Estado dos servicos
+	$(COMPOSE_NOVA) ps
+
+logs: ## Acompanha os logs
+	$(COMPOSE_NOVA) logs -f
+
+shell: ## Shell no conteiner do back
+	$(COMPOSE_NOVA) exec backend bash
+
+shell-front: ## Shell no conteiner do front
+	$(COMPOSE_NOVA) exec frontend bash
+
+saude: ## Confere a aplicacao e o repasse /api do servidor de front
+	@echo "-> Django em 127.0.0.1:$(PORTA_APP)"
+	@curl --fail --silent --show-error http://127.0.0.1:$(PORTA_APP)/api/v1/saude && echo ""
+	@echo "-> CSP da pagina raiz"
+	@curl --silent --head http://127.0.0.1:$(PORTA_APP)/ | grep -i '^content-security-policy'
+	@echo "-> Vite em 127.0.0.1:$(PORTA_WEB), repassando /api"
+	@curl --fail --silent --show-error http://127.0.0.1:$(PORTA_WEB)/api/v1/saude && echo ""
+
+# --- Banco ------------------------------------------------------------------
+
+migrate: ## Aplica as migracoes
+	$(BACK) python manage.py migrate
+
+makemigrations: ## Gera migracoes a partir dos modelos
+	$(BACK) python manage.py makemigrations
+
+superusuario: ## Cria uma conta de administracao
+	$(COMPOSE_NOVA) run --rm backend python manage.py createsuperuser
+
+# --- Verificacao ------------------------------------------------------------
+
+test: test-back test-front ## Roda toda a suite, de dentro do conteiner
+
+test-back: ## Testes do back (pytest)
+	$(BACK) python -m pytest
+
+test-front: ## Testes do front (Vitest)
+	$(FRONT) npm run test
+
+lint: lint-back lint-tipos lint-front lint-tokens ## Roda todas as verificacoes estaticas
+
+lint-back: ## ruff (regras e formatacao)
+	$(BACK_SEM_BANCO) sh -c "ruff check . && ruff format --check ."
+
+lint-tipos: ## mypy no back e tsc no front
+	$(BACK_SEM_BANCO) mypy .
+	$(FRONT) npm run lint:tipos
+
+lint-front: ## ESLint
+	$(FRONT) npm run lint
+
+lint-tokens: ## Proibe hexadecimal de cor fora do arquivo de tokens
+	$(FRONT) npm run lint:tokens
+
+format: ## Formata o back (ruff)
+	$(BACK_SEM_BANCO) sh -c "ruff check --fix . && ruff format ."
+
+a11y-check: ## Piso de acessibilidade do ADR-007 (Playwright + axe)
+	@echo "make a11y-check: sem pagina a medir na etapa 0."
+	@echo "Entra na etapa 1, com o design system: Playwright + axe-core sobre as"
+	@echo "paginas construidas, nos quatro criterios do ADR-007 transversal"
+	@echo "(Lighthouse >= 95, axe 0 serios, pa11y 0 erros WCAG2AA, teclado)."
+
+build-app: ## Constroi o front e confere o back para implantacao
+	$(FRONT) npm run build
+	@# Valores descartaveis, sorteados dentro do conteiner: existem so durante a
+	@# checagem e nao alcancam arquivo nenhum. A chave precisa ser longa, senao a
+	@# propria checagem reprova (security.W009) — o que e o comportamento certo.
+	$(BACK_SEM_BANCO) sh -c 'export DJANGO_SETTINGS_MODULE=config.settings.prod \
+	  DJANGO_SECRET_KEY=$$(python -c "import secrets; print(secrets.token_urlsafe(64))") \
+	  RECPSP_ALLOWED_HOSTS=recpsp.exemplo.gov.br \
+	  RECPSP_DB_PASSWORD=$$(python -c "import secrets; print(secrets.token_urlsafe(32))") \
+	  && python manage.py check --deploy --fail-level WARNING'
+
+auditoria: ## Auditoria de dependencias (back e front)
+	$(BACK_SEM_BANCO) pip-audit --requirement requirements.txt --requirement requirements-dev.txt
+	$(FRONT) npm audit --audit-level=high
+
+imagem: ## Constroi a imagem de producao do back
+	docker build --file docker/backend/Dockerfile --target prod --tag lilp-recpsp-nova:prod .
+
+ci: lint test build-app ## O mesmo laco que a esteira roda
+
+clean: ## Derruba os servicos e APAGA os volumes (banco e node_modules)
+	$(COMPOSE_NOVA) down -v
+
+# --- Demonstracao herdada (congelada) ---------------------------------------
+
+demo-setup: ## 1a vez da demonstracao: valida o .env, constroi e sobe
+	@test -f .env || { \
+	  echo "ERRO: .env nao existe. Copie o modelo e defina JWT_SECRET:"; \
 	  echo "  cp .env.example .env"; \
 	  echo "  openssl rand -hex 32   # use o resultado como JWT_SECRET"; \
 	  exit 1; }
+	$(MAKE) demo-build
+	$(MAKE) demo-up
+	@echo ""
+	@echo "Demonstracao no ar: http://127.0.0.1:$${RECPSP_PORT:-8003}"
 
-build: ## Constrói a imagem
-	$(COMPOSE) build
+demo-build: ## Constroi a imagem da demonstracao
+	$(COMPOSE_DEMO) build
 
-up: ## Sobe o container
-	$(COMPOSE) up -d
+demo-up: ## Sobe a demonstracao (loopback 8003)
+	$(COMPOSE_DEMO) up -d
 
-down: ## Derruba o container (o banco fica no volume)
-	$(COMPOSE) down
+demo-down: ## Derruba a demonstracao (o banco fica no volume)
+	$(COMPOSE_DEMO) down
 
-restart: ## Reinicia o container
-	$(COMPOSE) restart
+demo-restart: ## Reinicia a demonstracao
+	$(COMPOSE_DEMO) restart
 
-logs: ## Acompanha os logs
-	$(COMPOSE) logs -f web
+demo-logs: ## Acompanha os logs da demonstracao
+	$(COMPOSE_DEMO) logs -f web
 
-ps: ## Estado do stack
-	$(COMPOSE) ps
+demo-ps: ## Estado da demonstracao
+	$(COMPOSE_DEMO) ps
 
-shell: ## Shell dentro do container
-	$(COMPOSE) exec web bash
+demo-shell: ## Shell no conteiner da demonstracao
+	$(COMPOSE_DEMO) exec web bash
 
-test: ## Roda os testes do front e da API (no host; requer Node 18+)
+demo-test: ## Testes da demonstracao (no host; requer Node 18+)
 	CI=true npm test
 	npm run test:api
 
-clean: ## Derruba e APAGA o volume — o banco do fórum é perdido
-	$(COMPOSE) down -v
+demo-clean: ## Derruba a demonstracao e APAGA o volume — o banco demo e perdido
+	$(COMPOSE_DEMO) down -v

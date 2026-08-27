@@ -1,13 +1,31 @@
 .git
+.github
 .claude
+.devcontainer
+.remember
+
+# Dependencias e artefatos de build (das duas geracoes)
 node_modules
+**/node_modules
 build
+frontend/dist
+backend/staticfiles
 coverage
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+.venv
+
+# Banco da demonstracao herdada (artefato de runtime)
 server/forum.db
 server/forum.db-shm
 server/forum.db-wal
+
+# Segredos: nunca entram na imagem
 .env
 .env.*
 !.env.example
+
 *.log
 .DS_Store

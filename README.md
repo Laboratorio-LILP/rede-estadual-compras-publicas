@@ -13,22 +13,55 @@ lugar comum para perguntar, responder e padronizar.
 
 ---
 
-## Comece por aqui (Docker)
+## Duas gerações na mesma árvore
 
-Pré-requisitos: Docker + Docker Compose v2.
+Em 27/08/2026 foi decidida a **reescrita** da plataforma ([ADR 0002](docs/adr/0002-reescrita-stack-e-estrangulamento.md)).
+Até o corte único, o repositório carrega duas bases:
+
+| | Base nova | Demonstração herdada |
+|---|---|---|
+| Onde | `backend/`, `frontend/`, `docker/` | raiz: `server/`, `src/`, `public/` |
+| Stack | Django 5 + PostgreSQL 16 + React/Vite/TS | Express 5 + SQLite + React sobre CRA |
+| Portas (loopback) | app **8004** · Postgres **5434** · Vite **5173** | web **8003** |
+| Comandos | `make up`, `make test`, `make lint`… | os mesmos sob o prefixo `demo-` |
+| Regra | todo o trabalho novo | **congelada** — só correção de segurança crítica |
+
+Rode `make help` para a lista completa dos dois conjuntos.
+
+## Comece por aqui — base nova
+
+Pré-requisito único: **Docker + Docker Compose v2**. Não é preciso Python, Node,
+PostgreSQL nem nada mais na máquina: toda ferramenta roda dentro do contêiner
+([ADR-008](docs/adr/README.md) transversal).
 
 ```bash
 git clone git@github.com:Laboratorio-LILP/rede-estadual-compras-publicas.git
 cd rede-estadual-compras-publicas
+cp .env.example .env
+openssl rand -hex 32      # use o resultado como RECPSP_DB_PASSWORD no .env
+make setup                # constrói as imagens e sobe os três serviços
+```
+
+- Front (Vite, com recarregamento automático): <http://127.0.0.1:5173>
+- Aplicação Django e API: <http://127.0.0.1:8004>
+- Saúde do serviço: <http://127.0.0.1:8004/api/v1/saude>
+- Contrato OpenAPI: <http://127.0.0.1:8004/api/v1/openapi.json>
+
+Confira tudo de uma vez com `make saude`. Sem `RECPSP_DB_PASSWORD` no `.env` o
+compose se recusa a subir — é proposital, no padrão de segredos da frente.
+
+## Comece por aqui — demonstração herdada
+
+```bash
 cp .env.example .env      # defina JWT_SECRET (gere com: openssl rand -hex 32)
-make setup                # constrói a imagem e sobe o stack lilp-recpsp
+make demo-setup           # constrói a imagem e sobe o stack lilp-recpsp
 ```
 
 Abra <http://localhost:8003>. O banco não precisa de instalação: o SQLite é criado no
 primeiro boot, dentro do volume `lilp-recpsp_dbdata`, já com categorias, tags e conteúdo
 de exemplo. Sem `JWT_SECRET` no `.env`, o compose se recusa a subir — é proposital.
 
-## Dev local sem Docker
+## Dev local sem Docker (só a demonstração herdada)
 
 Para mexer no front com hot reload você precisa de **Node.js 18 ou superior**.
 
@@ -68,17 +101,31 @@ npm start                 # sobe tudo na porta 3001
 
 ## Comandos
 
-### Docker (via canônica)
+### Base nova (tudo dentro do contêiner)
 
 | Comando | O que faz |
 |---|---|
-| `make setup` | 1ª vez: valida o `.env`, constrói a imagem e sobe. |
-| `make up` / `make down` | Sobe / derruba o container. O banco fica no volume. |
-| `make logs` / `make ps` / `make shell` | Logs, estado do stack, shell no container. |
-| `make test` | Roda os testes do front e da API no host (requer Node 18+). |
-| `make clean` | Derruba e **apaga o volume** — o banco do fórum é perdido. |
+| `make setup` | 1ª vez: valida o `.env`, constrói as imagens e sobe os três serviços. |
+| `make up` / `make down` | Sobe / derruba o stack. O banco fica no volume. |
+| `make build` | Reconstrói as imagens e **renova as dependências do front**. |
+| `make test` | pytest e Vitest, de dentro do contêiner. |
+| `make lint` | ruff, mypy, tsc, ESLint e o guardião de tokens. |
+| `make format` | Formata o back (ruff). |
+| `make a11y-check` | Piso de acessibilidade do ADR-007 (entra na etapa 1). |
+| `make saude` | Confere a API, a CSP da página raiz e o repasse `/api` do Vite. |
+| `make migrate` / `make makemigrations` | Migrações do Django. |
+| `make logs` / `make ps` / `make shell` / `make shell-front` | Diagnóstico. |
+| `make auditoria` | Auditoria de dependências (pip-audit e npm audit). |
+| `make imagem` | Constrói a imagem de produção do back. |
+| `make ci` | O mesmo laço que a esteira roda. |
+| `make clean` | Derruba e **apaga os volumes** — o banco de desenvolvimento é perdido. |
 
-### npm (dev sem Docker)
+### Demonstração herdada
+
+Os mesmos verbos sob o prefixo `demo-`: `demo-setup`, `demo-up`, `demo-down`,
+`demo-logs`, `demo-ps`, `demo-shell`, `demo-test`, `demo-clean`.
+
+### npm (dev da demonstração, sem Docker)
 
 | Comando | O que faz |
 |---|---|
@@ -130,6 +177,40 @@ pelo nome de usuário:
 
 ## Estrutura do projeto
 
+### Base nova
+
+```
+rede-estadual-compras-publicas/
+├── backend/
+│   ├── config/
+│   │   ├── settings/     # base · dev (segredo efêmero) · prod (fail-loud)
+│   │   ├── api.py        # Django Ninja em /api/v1 (contrato OpenAPI gerado)
+│   │   └── urls.py       # API → admin sob caminho próprio → página raiz
+│   ├── apps/             # contas · taxonomia · forum · capacitacao ·
+│   │                     # mensagens · portal · indicadores (uma por domínio)
+│   ├── tests/            # saúde, CSP da página raiz, segredos, subcaminho
+│   ├── pyproject.toml    # ruff, mypy (estrito) e pytest
+│   └── requirements*.txt
+├── frontend/
+│   ├── src/
+│   │   ├── estilos/tokens.css   # FONTE ÚNICA de cor (ADR-007)
+│   │   ├── api/cliente.ts       # cliente HTTP único (sessão por cookie)
+│   │   ├── configuracao.ts      # base e prefixo da API, por ambiente
+│   │   └── App.tsx
+│   ├── scripts/          # guardião: nenhum hexadecimal fora dos tokens
+│   ├── vite.config.ts
+│   └── eslint.config.js
+├── docker/
+│   ├── docker-compose.dev.yml   # app 8004 · Postgres 5434 · Vite 5173
+│   ├── backend/Dockerfile       # alvos dev e prod
+│   └── frontend/Dockerfile
+├── .devcontainer/        # atalho de editor; nada existe só aqui (ADR-008)
+├── .pre-commit-config.yaml
+└── Makefile              # porta de entrada canônica das duas gerações
+```
+
+### Demonstração herdada
+
 ```
 rede-estadual-compras-publicas/
 ├── server/
@@ -148,15 +229,14 @@ rede-estadual-compras-publicas/
 │   ├── api.js            # cliente HTTP único
 │   └── App.test.js       # testes
 ├── public/               # brasão, logotipos e assinaturas do Governo de SP
-├── .github/workflows/    # ci.yml — lint, testes de front e API, build
+├── .github/workflows/    # ci-legado.yml — só quando o código herdado muda
 ├── craco.config.js
 ├── tailwind.config.js    # paleta gov.* e tipografia
 ├── Dockerfile            # dois estágios: build do front + runtime enxuto
 ├── docker-compose.yml    # stack lilp-recpsp — web em loopback 8003, volume do banco
-├── Makefile              # setup, up, down, logs, shell, test, clean
-├── .env.example
+├── .env.example          # as duas gerações, em seções separadas
 ├── CLAUDE.md             # instruções da frente para o Claude Code
-└── README.md
+└── docs/                 # ADRs, specs, requisitos e checklist da frente
 ```
 
 ---
@@ -190,11 +270,34 @@ em aberto (`docs/QUESTIONS.md`, pergunta 11).
 
 ## Testes
 
+### Base nova
+
 ```bash
-make test
+make test     # pytest e Vitest, de dentro do contêiner
+make lint     # ruff, mypy, tsc, ESLint e o guardião de tokens
 ```
 
-Duas suítes (o `make test` roda as duas; em separado, `npm test` e `npm run test:api`):
+Nada roda no host — é a garantia do [ADR-008](docs/adr/README.md): o mesmo laço
+de verificação na máquina, na sessão de agente e na esteira.
+
+- **Back (pytest)** — saúde e contrato OpenAPI; a página raiz com CSP estrita e
+  os demais cabeçalhos de segurança; **segredo ausente derruba o boot em
+  produção** (a regra é verificada, não declarada); o prefixo de subcaminho vem
+  do ambiente em qualquer grafia.
+- **Front (Vitest)** — a página raiz tem um único `<h1>`, os landmarks e o skip
+  link; nenhum valor de cor chega ao componente; a montagem do prefixo da API.
+
+A esteira (`.github/workflows/ci.yml`) roda `make lint`, `make test`,
+`make build-app`, `make a11y-check`, a auditoria de dependências e a construção
+da imagem de produção.
+
+### Demonstração herdada
+
+```bash
+make demo-test
+```
+
+Duas suítes (o `make demo-test` roda as duas; em separado, `npm test` e `npm run test:api`):
 
 - **Front (`npm test`)** — cinco testes de interface: texto dos Termos de Uso, aceite do
   comunicado no primeiro acesso, calendário de eventos, retorno ao topo e progresso da trilha.
@@ -204,7 +307,8 @@ Duas suítes (o `make test` roda as duas; em separado, `npm test` e `npm run tes
   autorização das rotas administrativas. Cada arquivo roda num banco SQLite temporário
   (`DB_PATH`) e nunca toca `server/forum.db` nem o volume do Docker.
 
-O CI (`.github/workflows/ci.yml`) roda lint, as duas suítes e o build em cada PR e na `main`.
+A esteira do legado (`.github/workflows/ci-legado.yml`) roda lint, as duas suítes e o
+build — **só quando `server/`, `src/` ou `public/` mudam**, já que a base está congelada.
 
 ---
 
@@ -260,11 +364,14 @@ protótipo. As decisões estão em [`docs/adr/`](docs/adr/) — comece pelo
 [0002](docs/adr/0002-reescrita-stack-e-estrangulamento.md) — e a especificação em
 [`docs/specs/`](docs/specs/).
 
-**O código deste README é a base legada**, que continua no ar como demonstração
-congelada (porta 8003) até o corte: as instruções de instalação e os comandos
-acima seguem valendo para ela, e nenhuma funcionalidade nova entra nela. A base
-nova nasce em `backend/` e `frontend/`, conforme o
-[plano de implementação](docs/specs/plano-de-implementacao.md).
+**A etapa 0 do [plano de implementação](docs/specs/plano-de-implementacao.md)
+está concluída**: a fundação da base nova está de pé em `backend/`, `frontend/` e
+`docker/`, com o laço de verificação inteiro rodando dentro do contêiner. A
+próxima é a **etapa 1** — design system e taxonomia.
+
+A base herdada continua no ar como demonstração congelada (porta 8003) até o
+corte único: as instruções e os comandos `demo-*` seguem valendo para ela, e
+nenhuma funcionalidade nova entra nela.
 
 Permanece a **pendência de segurança herdada**: uma chave de API exposta no
 histórico Git, a rotacionar no Google Cloud. Detalhes na seção *Segredos* do

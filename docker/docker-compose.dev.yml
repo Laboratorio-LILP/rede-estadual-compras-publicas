@@ -1,0 +1,119 @@
+# Ambiente de desenvolvimento da base nova da RECPSP (ADR-008 transversal).
+#
+# Tres servicos, TODOS publicados em loopback (ADR-004): aplicacao Django 8004,
+# PostgreSQL 5434 e servidor do Vite 5173. A demonstracao herdada continua em
+# outro projeto Compose (`lilp-recpsp`, porta 8003) e nao e tocada aqui.
+#
+# O nome traz o sufixo `-nova` enquanto as duas geracoes convivem. No corte
+# unico (etapa 6 do plano) a base nova assume o nome e a porta da demonstracao.
+#
+# Porta de entrada canonica: o Makefile na raiz (`make up`, `make test`...).
+# Nenhum comando existe so aqui ou so no devcontainer — regra do ADR-008.
+
+name: lilp-recpsp-nova
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${RECPSP_DB_NAME:-recpsp}
+      POSTGRES_USER: ${RECPSP_DB_USER:-recpsp}
+      # Sem fallback, no padrao da frente: o stack nao sobe sem o segredo.
+      POSTGRES_PASSWORD: ${RECPSP_DB_PASSWORD:?defina RECPSP_DB_PASSWORD no .env (veja .env.example)}
+    ports:
+      # Loopback do host. O banco nunca fica alcancavel pela rede.
+      - "127.0.0.1:${RECPSP_POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${RECPSP_DB_USER:-recpsp} -d ${RECPSP_DB_NAME:-recpsp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/backend/Dockerfile
+      target: dev
+    working_dir: /app/backend
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8004"
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.dev}
+      # Vazio em desenvolvimento: a chave e sorteada por processo, para que
+      # nenhum segredo fixo fique versionado. Em producao a ausencia derruba o
+      # boot (`config/settings/prod.py`).
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+      RECPSP_DB_HOST: db
+      RECPSP_DB_PORT: "5432"
+      RECPSP_DB_NAME: ${RECPSP_DB_NAME:-recpsp}
+      RECPSP_DB_USER: ${RECPSP_DB_USER:-recpsp}
+      RECPSP_DB_PASSWORD: ${RECPSP_DB_PASSWORD:?defina RECPSP_DB_PASSWORD no .env}
+      RECPSP_BASE_PATH: ${RECPSP_BASE_PATH:-/}
+      DJANGO_LOG_LEVEL: ${DJANGO_LOG_LEVEL:-INFO}
+    ports:
+      - "127.0.0.1:${RECPSP_APP_PORT:-8004}:8004"
+    volumes:
+      # A arvore inteira: o back precisa enxergar `frontend/src/estilos` (fonte
+      # unica dos tokens), e ter `docs/` e o Makefile a vista serve ao
+      # devcontainer.
+      - ..:/app
+      # Os artefatos que o host construiu para a demonstracao herdada ficam
+      # invisiveis dentro do conteiner: sao binarios do macOS, e ler um deles
+      # de um conteiner Linux e a falha que motivou o ADR-008.
+      - legado_node_modules:/app/node_modules
+      - legado_build:/app/build
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8004/api/v1/saude"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend/Dockerfile
+      target: dev
+    working_dir: /app/frontend
+    environment:
+      # Dentro do conteiner o Vite PRECISA escutar em 0.0.0.0 — o
+      # encaminhamento de porta do Docker chega pela interface do conteiner, e
+      # um processo preso a 127.0.0.1 dentro dele fica inalcancavel do host.
+      # A garantia de loopback do ADR-004 e a publicacao abaixo, no host.
+      # Ver `docs/adr/0004-loopback-em-conteiner.md`.
+      RECPSP_WEB_HOST: 0.0.0.0
+      RECPSP_WEB_PORT: "5173"
+      RECPSP_API_PROXY: http://backend:8004
+      RECPSP_BASE_PATH: ${RECPSP_BASE_PATH:-/}
+      RECPSP_API_URL: ${RECPSP_API_URL:-}
+      # Volume montado no macOS nao entrega evento de arquivo de forma
+      # confiavel; a sondagem custa CPU mas faz o recarregamento funcionar.
+      RECPSP_WEB_POLLING: ${RECPSP_WEB_POLLING:-1}
+    ports:
+      - "127.0.0.1:${RECPSP_WEB_PORT:-5173}:5173"
+    volumes:
+      - ..:/app
+      # Preserva o `node_modules` da imagem: sem isto, o monte do host o
+      # encobre e o Vite nao acha nada.
+      - node_modules:/app/frontend/node_modules
+      # Mesma protecao do back contra a arvore do legado construida no host.
+      - legado_node_modules:/app/node_modules
+      - legado_build:/app/build
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+  node_modules:
+  legado_node_modules:
+  legado_build:
