@@ -38,17 +38,30 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
-    hooks:
-      - id: ruff
-        args: [--fix]
-        files: ^backend/
-      - id: ruff-format
-        files: ^backend/
-
   - repo: local
     hooks:
+      # O ruff roda DENTRO DO CONTEINER, e nao por um `rev` proprio deste
+      # arquivo. O motivo e' concreto: enquanto o gancho fixava a v0.8.6 e a
+      # imagem instalava a 0.16.5, os dois DISCORDAVAM sobre como formatar um
+      # `assert` com mensagem. O gancho reformatava de um jeito, `make lint-back`
+      # exigia o outro, e o arquivo nao podia satisfazer os dois — commit verde
+      # na maquina, esteira vermelha no GitHub.
+      #
+      # Uma ferramenta, um lugar: o conteiner (ADR-008). Isto CONFERE e nao
+      # corrige; quando reprovar, rode `make format`.
+      #
+      # Fica o risco conhecido de `requirements-dev.txt` declarar `ruff` por
+      # faixa: uma reconstrucao futura pode trazer versao com formatacao
+      # diferente. A decisao de fixar versao e' de politica de dependencias e
+      # vale para o conjunto, nao so para o ruff.
+      - id: ruff-conteiner
+        name: ruff (regras e formatacao), no conteiner
+        entry: make lint-back
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+
+
       - id: tokens
         name: cor so em tokens.css
         entry: make lint-tokens

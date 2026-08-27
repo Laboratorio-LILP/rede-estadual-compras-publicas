@@ -65,15 +65,15 @@ def test_o_diretorio_publicado_so_tem_css_que_nao_precisa_de_build() -> None:
             if not arquivo.is_file():
                 continue
 
-            assert (
-                arquivo.suffix != ".ts"
-            ), f"{arquivo.name} e' codigo, nao ativo estatico — sairia servido publicamente"
+            assert arquivo.suffix != ".ts", (
+                f"{arquivo.name} e' codigo, nao ativo estatico — sairia servido publicamente"
+            )
 
             if arquivo.suffix == ".css":
                 texto = arquivo.read_text(encoding="utf-8")
-                assert (
-                    '@import "tailwindcss"' not in texto
-                ), f"{arquivo.name} depende do Vite; o Django nao resolve esse import"
+                assert '@import "tailwindcss"' not in texto, (
+                    f"{arquivo.name} depende do Vite; o Django nao resolve esse import"
+                )
 
 
 @pytest.mark.django_db
