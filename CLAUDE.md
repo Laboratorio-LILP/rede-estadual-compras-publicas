@@ -112,6 +112,17 @@ Pré-requisito único: Docker. **Toda ferramenta roda dentro do contêiner**
 - **`make a11y-check` mede as páginas NO AR**, então o stack precisa estar de pé
   (o alvo já chama `make up`). O serviço `a11y` fica sob o perfil `ferramentas`
   e não sobe com `make up`: a imagem do Playwright passa de um giga.
+- **`make build-app` NÃO coleta estáticos** — ele roda `check --deploy`. Quem
+  coleta é `make imagem`. **Rode `make imagem` antes de fechar a sessão:** foi
+  assim que a etapa 1 quebrou a construção da imagem de produção sem que `lint`,
+  `test` ou `a11y-check` percebessem. Passo que só a esteira exercita é passo
+  que se descobre quebrado depois de empurrar.
+- **`frontend/src/estilos/estatico/` é o único diretório que o Django publica.**
+  Só entra ali CSS **puro** — tokens, fontes —, que qualquer servidor entrega
+  como está. `index.css`, `tema.css`, `base.css` e `componentes.css` dependem do
+  Vite: um `@import` de pacote num diretório publicado derruba o `collectstatic`
+  de produção, que reescreve toda referência dentro de CSS. Há teste
+  (`backend/tests/test_estaticos.py`).
 - O lock do front é gerado **em contêiner**:
   `docker run --rm -v "$PWD/frontend":/work -w /work node:22-bookworm-slim npm install --package-lock-only`
   (o mesmo vale para `a11y/`).
