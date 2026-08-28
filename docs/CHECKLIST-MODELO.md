@@ -49,9 +49,10 @@ a reescrita torna propriedade da base nova.
   - **App `taxonomia`:** `CategoriaProcessual`, `Assunto` e `Natureza`, migração inicial **com índices e travas de integridade** (ADR 0001), e `seed_taxonomia` idempotente com a **BDLP v9** — 30 termos processuais, 19 assuntos (14 BDLP + 5 da Lina, com origem marcada) e 5 naturezas.
   - **Página de amostra** com o inventário inteiro e todos os estados.
   - **`make a11y-check` deixou de ser vazio:** 11 verificações, verdes. axe-core **zero violação de qualquer gravidade** e HTML_CodeSniffer **zero erro WCAG2AA** nas duas páginas, mais suíte de teclado e reflow a 320 px. Relatório datado em [`specs/validacao_a11y.md`](specs/validacao_a11y.md).
-  - **Placar:** `make lint` verde · `make test` com **157** testes (39 back + 118 front) · `make auditoria` **zero** vulnerabilidades nas **três** cadeias · `make build-app` verde.
+  - **Placar:** `make lint` verde · `make test` com **180** testes (62 back + 118 front) · `make auditoria` **zero** vulnerabilidades nas **três** cadeias · `make build-app` e **`make imagem`** verdes.
   - **Achados corrigidos na própria etapa:** o `MenuSuspenso` marcava a página inteira como `aria-hidden` (gravidade *serious*); o `Botao` descartava props e quebrava todo modal e menu por `asChild`; `perigo` e `primario` desenhavam idênticos; `make format` nunca formatava quando havia erro não corrigível.
   - **Um defeito escapou do laço e foi pego na verificação final — e virou teste.** `index.css` (com `@import "tailwindcss"`) entrou no diretório que o Django publica, e o `collectstatic` de produção, que reescreve toda referência dentro de CSS, passou a falhar: **a imagem de produção não construía**. Nem `make lint`, nem `make test`, nem `make a11y-check` viam — `make build-app` roda `check --deploy`, que não coleta estáticos, e só `make imagem` coleta. **Passo que apenas a esteira exercita é passo que se descobre quebrado depois de empurrar.** Correção estrutural: `estilos/estatico/` guarda o CSS **puro** (tokens e fontes), que qualquer servidor entrega como está, e é só ele que o Django publica; o que depende do Vite fica fora. Junto vieram outros dois: `tokens.test.ts` estava sendo servido como ativo público, e a página do Django nunca carregava as fontes — a Montserrat caía calada na reserva. Os três estão sob teste em [`backend/tests/test_estaticos.py`](../backend/tests/test_estaticos.py).
+  - **Documentação reorganizada por geração.** A pasta `docs/` não dizia a que geração cada documento pertencia — era preciso abrir o arquivo para saber se descrevia o congelado ou o alvo. `ARCHITECTURE.md` e `MODELO_DE_DADOS.md` viraram [`legado/arquitetura.md`](legado/arquitetura.md) e [`legado/modelo-de-dados.md`](legado/modelo-de-dados.md); `specs/` ficou intacto (é citado na vault, no prompt de handoff e em comentários de código). No corte da etapa 6 a documentação do legado sai com `git rm -r docs/legado/`, junto com o código que descreve. Guardião novo: [`backend/tests/test_documentacao.py`](../backend/tests/test_documentacao.py) reprova link relativo que não resolva — escrito antes do movimento, visto reprovar nos 5 links quebrados por ele.
   - **Specs corrigidos na mesma sessão** (regra do `CLAUDE.md`): `design-system.md` → v1.1, com cinco correções marcadas; ADR 0003 → tabela da taxonomia completada (faltavam 5 microcategorias) e regra de capitalização registrada.
 - [ ] Etapa 2 — Capacitação completa, gerida pelo admin. **Pré-condição: chave do YouTube rotacionada.**
 - [ ] Etapa 3 — contas, cadastro escalonado, sentinela; trilho Gov.br aberto com a TI.
@@ -74,9 +75,19 @@ a reescrita torna propriedade da base nova.
 
 ## Pendências que a reescrita NÃO resolve
 
-- [ ] **Rotacionar a chave do YouTube Data API** exposta no histórico (P1 —
+- [?] **Rotacionar a chave do YouTube Data API** exposta no histórico (P1 —
   vencida; só a rotação no Google Cloud corrige; o histórico importado a
   preserva mesmo com o legado fora da árvore).
+  **DIVERGÊNCIA A CONFIRMAR (27/08, fim da sessão da etapa 1):** a tarefa está
+  marcada como **concluída no Todoist** desde 27/08 às 08:05, sem comentário —
+  um minuto depois de outra, o que sugere triagem em lote. Toda a documentação
+  escrita **depois** disso (este checklist, o `CLAUDE.md`, o plano, o Mapa)
+  segue tratando a rotação como aberta. Pela regra de precedência do rito, o
+  conector manda sobre o estado do trabalho; mas fechar um P1 de segurança sem
+  registro não é evidência suficiente para liberar a importação de pílulas.
+  **É a pré-condição dura da etapa 2 — confirmar com o Bernardo antes de abrir
+  a sessão.** Nenhuma sessão deve deduzir a resposta: `git log --all -S'AIza'`
+  não ajuda (a chave fica no histórico de qualquer forma, rotacionada ou não).
 - [~] Acessibilidade **medida**: o laço existe e roda verde desde 27/08 nas
   **duas páginas que existem** (amostra do design system e raiz da aplicação) —
   ver [`specs/validacao_a11y.md`](specs/validacao_a11y.md). Continua aberto
