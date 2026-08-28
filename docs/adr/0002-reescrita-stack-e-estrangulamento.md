@@ -40,7 +40,7 @@ O regime de segurança da CTI não admite exceção e a reescrita não pede nenh
 
 - Uma stack a manter no lugar de duas, atacando a restrição central do laboratório.
 - As duas vulnerabilidades críticas da cadeia do Create React App desaparecem com ele.
-- O back modular destrava trabalho paralelo, que o arquivo único impedia (`ARCHITECTURE.md`, seção 10).
+- O back modular destrava trabalho paralelo, que o arquivo único impedia (`legado/arquitetura.md`, seção 10).
 - Custo político: para quem viu a demonstração de 26/08, "vamos reescrever" lê como andar para trás. O plano precisa deixar explícito que o produto validado se mantém.
 - Custo técnico: o bug conhecido de Django atrás do roteador `index.php` no ambiente on-premise passa a bloquear duas frentes (ADR-001 transversal, atualização de 27/08). Tratá-lo antes da primeira subida.
 - A rotação da chave do YouTube exposta **não** é resolvida pela reescrita: o histórico importado é preservado. Segue como pendência P1.

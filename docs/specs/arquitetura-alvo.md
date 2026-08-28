@@ -1,7 +1,7 @@
 # Arquitetura-alvo da plataforma RECPSP
 
 > O sistema como ele **deve ficar**, decidido em 27/08/2026. O par deste documento é
-> o [`ARCHITECTURE.md`](../ARCHITECTURE.md), que descreve a base legada em
+> o [`legado/arquitetura.md`](../legado/arquitetura.md), que descreve a base legada em
 > demonstração. Decisões de fundo nos ADRs da frente ([`../adr/`](../adr/)) e nos
 > transversais da vault.
 

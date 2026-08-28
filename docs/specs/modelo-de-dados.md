@@ -1,7 +1,7 @@
 # Modelo de dados da base nova
 
 > O schema como ele **deve nascer** no PostgreSQL, via modelos e migrações do
-> Django. O par deste documento é o [`MODELO_DE_DADOS.md`](../MODELO_DE_DADOS.md),
+> Django. O par deste documento é o [`legado/modelo-de-dados.md`](../legado/modelo-de-dados.md),
 > que descreve as 18 tabelas SQLite da base legada. Não há migração de dados: o
 > banco herdado contém só demonstração e é descartado (ADR 0001).
 

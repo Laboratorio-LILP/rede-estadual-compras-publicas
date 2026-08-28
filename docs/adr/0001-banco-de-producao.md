@@ -19,4 +19,4 @@
 - Três dívidas registradas no `CHECKLIST-MODELO.md` — migrações, índices e cascata — deixam de ser disciplina e passam a ser propriedade da ferramenta.
 - O laboratório passa a ter duas frentes no mesmo banco, o que simplifica operação e o pedido de infraestrutura à TI (RNF-HOSP-01 prevê servidor único com divisão lógica).
 - Custo: PostgreSQL vira dependência de desenvolvimento. Resolvido pelo ADR-008 transversal — o banco sobe em contêiner, ninguém instala nada.
-- O `docs/MODELO_DE_DADOS.md` atual descreve as 18 tabelas do SQLite e fica obsoleto com esta decisão. Substituição prevista na especificação do modelo novo.
+- O `docs/legado/modelo-de-dados.md` descreve as 18 tabelas do SQLite e fica obsoleto com esta decisão. Substituição prevista na especificação do modelo novo.

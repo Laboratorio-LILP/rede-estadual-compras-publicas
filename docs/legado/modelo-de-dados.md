@@ -2,11 +2,11 @@
 
 > **Aviso (27/08/2026):** este documento descreve as 18 tabelas SQLite da **base
 > legada**, cujo banco contém apenas demonstração e é descartável (ADR 0001). O
-> modelo da base nova está em [`specs/modelo-de-dados.md`](specs/modelo-de-dados.md).
+> modelo da base nova está em [`specs/modelo-de-dados.md`](../specs/modelo-de-dados.md).
 > Este arquivo permanece válido para a demonstração e sai da árvore no corte.
 
 > O que existe no banco hoje, como foi criado e o que é preciso saber antes de
-> alterar. Complementa `ARCHITECTURE.md`. Fonte: `server/index.js`, linhas 40–535.
+> alterar. Complementa `arquitetura.md`. Fonte: `server/index.js`, linhas 40–535.
 
 | | |
 |---|---|
@@ -216,7 +216,7 @@ A ordem de limpeza vive em `apagarTopicoEmCascata` e `apagarPostEmCascata`
 O defeito que as rotas de tópico e de resposta tinham (curtidas de resposta não
 eram limpas: a exclusão falhava com `FOREIGN KEY constraint failed`, devolvia
 500 e deixava o tópico parcialmente destruído) foi **confirmado em execução e
-corrigido em 26/08/2026** — ver `ARCHITECTURE.md`, seção 7, e o teste de
+corrigido em 26/08/2026** — ver `arquitetura.md`, seção 7, e o teste de
 regressão em `server/test/exclusao.test.js`.
 
 **Regra ao criar tabela nova que referencie `users`, `topics` ou `posts`:**
@@ -233,7 +233,7 @@ a única menção fora do `CREATE TABLE` é a limpeza na exclusão de usuário.
 
 A concessão de especialista é hoje só por decisão do administrador
 (`POST /api/admin/users/:id/specialties/:categoryId`), sem pedido do interessado.
-Ou o fluxo de autosserviço é implementado, ou a tabela sai. Ver `QUESTIONS.md`,
+Ou o fluxo de autosserviço é implementado, ou a tabela sai. Ver `../QUESTIONS.md`,
 pergunta 13.
 
 ## 7. Desempenho

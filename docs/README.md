@@ -10,7 +10,22 @@ lê nesta ordem:
 | 3 | [`specs/`](specs/) | o que construir: [arquitetura-alvo](specs/arquitetura-alvo.md), [modelo de dados](specs/modelo-de-dados.md), [design system](specs/design-system.md), [plano](specs/plano-de-implementacao.md); e o que já foi medido: [validação de acessibilidade](specs/validacao_a11y.md) |
 | 4 | [`QUESTIONS.md`](QUESTIONS.md) | o que ainda **não** foi decidido — não invente resposta |
 | 5 | [`requisitos/`](requisitos/) | o que a plataforma deve fazer (46 RF + 19 RNF) |
-| 6 | [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`MODELO_DE_DADOS.md`](MODELO_DE_DADOS.md) | **a base legada** (demonstração congelada), até o corte |
+| 6 | [`legado/`](legado/) | **a base legada** (demonstração congelada) — arquitetura e modelo de dados, até o corte |
+
+## Duas gerações, duas pastas
+
+O repositório carrega duas gerações ao mesmo tempo (ver [`../CLAUDE.md`](../CLAUDE.md)),
+e a documentação segue a mesma divisão. **A pasta diz de qual geração o
+documento fala** — não é preciso abrir o arquivo para saber:
+
+| Pasta | Geração | Destino |
+|---|---|---|
+| [`specs/`](specs/) | base nova (Django + PostgreSQL + Vite) | fica |
+| [`legado/`](legado/) | protótipo congelado na 8003 | some no corte (etapa 6) |
+
+Existem, portanto, **dois documentos de arquitetura e dois de modelo de dados**,
+e isso é intencional: descrevem sistemas diferentes, os dois no ar hoje. Cada um
+abre apontando para o seu par.
 
 ## Sobre `requisitos/`
 
@@ -25,9 +40,11 @@ as-is de novo — v1.2 + regeneração pendentes, registradas no checklist.
 
 - `specs/` descrevem o **alvo**: divergência consciente na implementação
   atualiza o spec na mesma sessão.
-- `ARCHITECTURE.md` e `MODELO_DE_DADOS.md` descrevem o **legado**: congelados
-  junto com ele; somem da árvore no corte (etapa 6), junto com o código que
-  descrevem.
+- `legado/` descreve o **legado**: congelado junto com ele. Some da árvore no
+  corte (etapa 6) — `git rm -r docs/legado/` —, junto com o código que descreve.
+- **Link de documentação é contrato:** `backend/tests/test_documentacao.py`
+  confere, a cada `make test`, que todo link relativo aponta para algo que
+  existe. Mover um documento sem consertar quem o cita reprova a suíte.
 - `QUESTIONS.md` cresce durante o trabalho e encolhe quando alguém decide; item
   decidido migra para "Decididas" com data e origem.
 - `CHECKLIST-MODELO.md` é o placar — data em cada item fechado.

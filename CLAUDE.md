@@ -48,7 +48,7 @@ FORA do OneDrive** (ADR-002) — leia o rito e o estado direto na vault:
    registra por que o `vite.config.ts` diverge da letra do ADR-004).
 3. **`docs/specs/`** — arquitetura-alvo, modelo de dados, design system, plano.
 4. **`docs/QUESTIONS.md`** — o que segue sem decisão. **Não invente resposta.**
-5. `docs/ARCHITECTURE.md` e `docs/MODELO_DE_DADOS.md` — **a base legada**, úteis
+5. `docs/legado/` — **a base legada** (arquitetura e modelo de dados), úteis
    enquanto a demonstração existir.
 6. `docs/requisitos/` — os 46 RF + 19 RNF (a seção 7, as-is, ficou datada com a
    decisão de reescrita; pendência de v1.1 registrada).

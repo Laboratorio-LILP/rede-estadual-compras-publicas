@@ -3,7 +3,7 @@
 > **Aviso (27/08/2026):** este documento descreve a **base legada** — o protótipo
 > Node/Express/SQLite que roda como demonstração congelada na porta 8003. A
 > plataforma será reescrita (ADR 0002); a arquitetura da base nova está em
-> [`specs/arquitetura-alvo.md`](specs/arquitetura-alvo.md). Este arquivo permanece
+> [`specs/arquitetura-alvo.md`](../specs/arquitetura-alvo.md). Este arquivo permanece
 > válido para operar a demonstração e sai da árvore no corte, junto com o código.
 
 > Mapa do sistema como ele **é hoje**, para quem vai programar nele — inclusive
@@ -159,7 +159,7 @@ Bom comportamento; mantenha.
 
 ### Os papéis não são três, são quatro
 
-`README.md` e a validação de `PUT /api/admin/users/:id/role` falam em
+`../README.md` e a validação de `PUT /api/admin/users/:id/role` falam em
 `user`, `moderator` e `admin`. Mas conceder especialidade grava um quarto valor:
 
 ```js
@@ -198,7 +198,7 @@ const topicStatus = (hasMedia && !isAdminOrMod) ? 'pending' : 'approved';
 Ou seja: **só tópicos com imagem ou vídeo entram pendentes.** Um tópico de texto
 puro de usuário comum é publicado direto. A decisão registrada na apresentação de
 26/08 (Laís) é que **todo** tópico novo passe por curadoria prévia — o código
-ainda não faz isso. Ver `QUESTIONS.md`, pergunta 11.
+ainda não faz isso. Ver `../QUESTIONS.md`, pergunta 11.
 
 ## 7. Exclusão em cascata é manual
 
@@ -257,7 +257,7 @@ devolver 500 genérico. Sem tópicos, limpa `user_categories`,
 **Regra para quem for mexer aqui:** toda tabela nova que referencie `users`,
 `topics` ou `posts` precisa entrar nas três rotinas de exclusão — ou, melhor,
 o conjunto deve migrar para `ON DELETE CASCADE` no schema, o que elimina a
-classe inteira de erro. Ver `MODELO_DE_DADOS.md`, seção "Protocolo de alteração".
+classe inteira de erro. Ver `modelo-de-dados.md`, seção "Protocolo de alteração".
 
 ## 8. Front: páginas, rotas e endpoints
 
@@ -281,7 +281,7 @@ Sessão e token vivem em `src/context/AuthContext.js`.
 **Conteúdo de capacitação mora em três lugares diferentes** — `src/data/
 capacitacaoCourses.js` e `capacitacaoEvents.js` no front, o seed de 14 cursos em
 `resources` no servidor, e a lista fixa `CAPACITACAO_COURSE_IDS` (10 identificadores)
-que valida o progresso. Os três não coincidem. Ver `QUESTIONS.md`, pergunta 12.
+que valida o progresso. Os três não coincidem. Ver `../QUESTIONS.md`, pergunta 12.
 
 ## 9. Onde encaixar código novo
 
@@ -315,7 +315,7 @@ documentação nenhuma resolve isso. Regras de convivência, em ordem de prefer�
 
 Antes de abrir qualquer sessão paralela, garanta que ela leia, nesta ordem:
 `CLAUDE.md` (limites e armadilhas) → este arquivo (como funciona) →
-`MODELO_DE_DADOS.md` (o que existe no banco) → `QUESTIONS.md` (o que ainda não
+`modelo-de-dados.md` (o que existe no banco) → `../QUESTIONS.md` (o que ainda não
 foi decidido — não invente resposta) → Documento de Requisitos (o que construir).
 
 ## 11. Dívidas estruturais que afetam quem programa
@@ -370,6 +370,6 @@ Atualize quando mudar a **estrutura**, não a cada funcionalidade: nova seção 
 modularização do back, troca de banco. Os números de linha da seção 3 podem ficar
 desatualizados sem prejuízo — os nomes das seções são a âncora estável.
 
-Documentos irmãos: `MODELO_DE_DADOS.md`, `QUESTIONS.md`, `CLAUDE.md` (raiz),
-`README.md` (raiz). ADRs da frente ficarão em `docs/adr/`, no padrão da BDLP;
+Documentos irmãos: `modelo-de-dados.md`, `../QUESTIONS.md`, `CLAUDE.md` (raiz),
+`../README.md` (raiz). ADRs da frente ficarão em `docs/adr/`, no padrão da BDLP;
 os ADRs transversais do laboratório vivem na vault (`SGGD - SEGES - LILP/ADR/`).
